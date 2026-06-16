@@ -1,11 +1,30 @@
 import { prisma } from "./prisma";
 import { generateGameAnalysis } from "./ai";
 
-/** O usuário tem acesso ao Especialista para este jogo? (pedido confirmado) */
+// CPFs com acesso liberado de cortesia (ex: dono/equipe), separados por vírgula
+// na env SPECIALIST_FREE_CPFS. Ex: "12345678900,98765432100".
+function freeCpfs(): string[] {
+  return (process.env.SPECIALIST_FREE_CPFS || "")
+    .split(",")
+    .map((s) => s.replace(/\D/g, ""))
+    .filter(Boolean);
+}
+
+/** O usuário tem acesso ao Especialista para este jogo? (pedido confirmado ou cortesia) */
 export async function hasSpecialistAccess(
   userId: string,
   gameId: string
 ): Promise<boolean> {
+  // Cortesia: CPFs liberados acessam o chat de qualquer jogo, sem pagar.
+  const free = freeCpfs();
+  if (free.length) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { cpf: true },
+    });
+    if (user && free.includes(user.cpf)) return true;
+  }
+
   const order = await prisma.specialistOrder.findFirst({
     where: { userId, gameId, status: "CONFIRMED" },
     select: { id: true },
