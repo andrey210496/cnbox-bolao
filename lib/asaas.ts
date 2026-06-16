@@ -17,7 +17,7 @@ function headers(): HeadersInit {
   };
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(path: string, init?: RequestInit, retry = 1): Promise<T> {
   if (!API_KEY) {
     throw new Error(
       "ASAAS_API_KEY não configurada. Preencha a chave de produção no arquivo .env"
@@ -29,6 +29,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers: headers(),
     cache: "no-store",
   });
+
+  // Rate limit do Asaas: espera e tenta de novo uma vez
+  if (res.status === 429 && retry > 0) {
+    await new Promise((r) => setTimeout(r, 2500));
+    return request<T>(path, init, retry - 1);
+  }
 
   const text = await res.text();
   let data: unknown = null;

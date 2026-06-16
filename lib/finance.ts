@@ -47,24 +47,34 @@ function round2(n: number) {
   return Math.round((n || 0) * 100) / 100;
 }
 
+// Cache em memória (evita estourar o rate limit do Asaas em recarregamentos)
+let cache: { at: number; data: FinanceResult } | null = null;
+const TTL_MS = 90_000;
+
 export async function getFinanceOverview(): Promise<FinanceResult> {
+  if (cache && Date.now() - cache.at < TTL_MS && cache.data.ok) {
+    return cache.data;
+  }
+  const data = await fetchFinanceOverview();
+  if (data.ok) cache = { at: Date.now(), data };
+  return data;
+}
+
+async function fetchFinanceOverview(): Promise<FinanceResult> {
   try {
-    const [received, confirmed, pending, balance, pix, credit, debit, upcomingRaw] =
-      await Promise.all([
-        getPaymentStatistics({ status: "RECEIVED" }),
-        getPaymentStatistics({ status: "CONFIRMED" }),
-        getPaymentStatistics({ status: "PENDING" }),
-        getBalance(),
-        getPaymentStatistics({ status: "RECEIVED", billingType: "PIX" }),
-        getPaymentStatistics({ status: "RECEIVED", billingType: "CREDIT_CARD" }),
-        getPaymentStatistics({ status: "RECEIVED", billingType: "DEBIT_CARD" }),
-        // pagamentos pagos aguardando liberação (cartão) → prazos
-        listPayments({ status: "CONFIRMED", limit: 100 }).catch(() => ({
-          data: [],
-          hasMore: false,
-          totalCount: 0,
-        })),
-      ]);
+    // Sequencial de propósito: o Asaas bloqueia rajadas de requisições.
+    const received = await getPaymentStatistics({ status: "RECEIVED" });
+    const confirmed = await getPaymentStatistics({ status: "CONFIRMED" });
+    const pending = await getPaymentStatistics({ status: "PENDING" });
+    const balance = await getBalance();
+    const pix = await getPaymentStatistics({ status: "RECEIVED", billingType: "PIX" });
+    const credit = await getPaymentStatistics({ status: "RECEIVED", billingType: "CREDIT_CARD" });
+    const debit = await getPaymentStatistics({ status: "RECEIVED", billingType: "DEBIT_CARD" });
+    const upcomingRaw = await listPayments({ status: "CONFIRMED", limit: 100 }).catch(() => ({
+      data: [],
+      hasMore: false,
+      totalCount: 0,
+    }));
 
     const byMethod: Record<string, AsaasStatistics> = {
       PIX: pix,
