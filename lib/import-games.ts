@@ -10,7 +10,19 @@ export type ParsedMatch = {
   awayCode: string;
   stage: string | null;
   kickoffAt: Date;
+  finalHome: number | null; // placar final (se o jogo já tem resultado na fonte)
+  finalAway: number | null;
 };
+
+function parseScore(score: unknown): { home: number; away: number } | null {
+  const ft = (score as { ft?: unknown })?.ft;
+  if (Array.isArray(ft) && ft.length >= 2) {
+    const h = Number(ft[0]);
+    const a = Number(ft[1]);
+    if (Number.isInteger(h) && Number.isInteger(a)) return { home: h, away: a };
+  }
+  return null;
+}
 
 function teamString(t: unknown): string {
   if (typeof t === "string") return t;
@@ -64,7 +76,14 @@ export async function fetchWorldCupMatches(): Promise<{
 
   for (const round of rounds) {
     for (const raw of round.matches ?? []) {
-      const mm = raw as { date?: string; time?: unknown; team1?: unknown; team2?: unknown; group?: string };
+      const mm = raw as {
+        date?: string;
+        time?: unknown;
+        team1?: unknown;
+        team2?: unknown;
+        group?: string;
+        score?: unknown;
+      };
       const home = resolveTeam(teamString(mm.team1));
       const away = resolveTeam(teamString(mm.team2));
       const kickoff = buildKickoff(String(mm.date ?? ""), mm.time);
@@ -72,6 +91,7 @@ export async function fetchWorldCupMatches(): Promise<{
         skipped++;
         continue;
       }
+      const sc = parseScore(mm.score);
       out.push({
         homeTeam: home.name,
         homeCode: home.code,
@@ -79,6 +99,8 @@ export async function fetchWorldCupMatches(): Promise<{
         awayCode: away.code,
         stage: mm.group || round.name || null,
         kickoffAt: kickoff,
+        finalHome: sc ? sc.home : null,
+        finalAway: sc ? sc.away : null,
       });
     }
   }

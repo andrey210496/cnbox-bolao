@@ -126,19 +126,46 @@ function Games({ games, teams, onChange }: { games: Game[]; teams: Team[]; onCha
     }
   }
 
+  const [importingRes, setImportingRes] = useState(false);
+  async function importResults() {
+    if (!confirm("Importar os placares finais da fonte e marcar os jogos como encerrados? (não mexe nos já apurados/pagos — confira antes de pagar)")) return;
+    setImportingRes(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/admin/games/import-results", { method: "POST" });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d?.error ?? "Erro ao importar resultados.");
+      setMsg(`✅ ${d.updated} resultado(s) lançado(s) · ${d.alreadyDone} já apurados · ${d.notFound} não encontrados. Revise antes de pagar!`);
+      onChange();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Erro.");
+    } finally {
+      setImportingRes(false);
+    }
+  }
+
   const sel = "rounded-xl bg-ink/60 border border-white/10 px-3 py-2.5 text-white outline-none focus:border-brand/60";
 
   return (
     <section className="card-premium rounded-3xl p-6">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <h2 className="font-display text-2xl">JOGOS <span className="text-brand">DA COPA</span></h2>
-        <button
-          onClick={importGames}
-          disabled={importing}
-          className="rounded-xl glass px-4 py-2.5 text-sm font-semibold text-brand hover:text-brand-light disabled:opacity-50"
-        >
-          {importing ? "Importando..." : "⬇ Importar jogos da Copa"}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={importGames}
+            disabled={importing}
+            className="rounded-xl glass px-4 py-2.5 text-sm font-semibold text-brand hover:text-brand-light disabled:opacity-50"
+          >
+            {importing ? "Importando..." : "⬇ Importar jogos"}
+          </button>
+          <button
+            onClick={importResults}
+            disabled={importingRes}
+            className="rounded-xl glass px-4 py-2.5 text-sm font-semibold text-brand hover:text-brand-light disabled:opacity-50"
+          >
+            {importingRes ? "Importando..." : "🏁 Importar resultados"}
+          </button>
+        </div>
       </div>
 
       <div className="grid sm:grid-cols-5 gap-2 mb-5">
