@@ -55,6 +55,17 @@ export default function GameCard({
         </div>
       </div>
 
+      {open && (
+        <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-brand/30 bg-gradient-to-r from-brand/15 to-brand/5 px-3 py-2.5">
+          <span className="text-lg leading-none mt-0.5">🤖</span>
+          <p className="text-[11px] leading-snug text-white/75">
+            <span className="font-bold text-brand">Mais precisão no palpite:</span> conte com
+            o <span className="font-semibold text-white">Especialista IA</span> de futebol antes
+            de apostar.
+          </p>
+        </div>
+      )}
+
       <Link
         href={href}
         className={`mt-4 block text-center py-3 rounded-xl font-semibold transition ${
