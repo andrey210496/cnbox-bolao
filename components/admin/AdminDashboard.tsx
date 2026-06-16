@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Logo from "@/components/Logo";
 import { formatBRL } from "@/lib/format";
 
 type Team = { name: string; code: string };
@@ -52,31 +51,12 @@ export default function AdminDashboard({
   const router = useRouter();
   const refresh = () => router.refresh();
 
-  async function logout() {
-    await fetch("/api/admin/logout", { method: "POST" });
-    router.refresh();
-  }
-
   return (
-    <main className="flex-1 w-full">
-      <div className="w-full glass border-b border-white/10">
-        <div className="mx-auto max-w-[1300px] px-4 sm:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Logo height={28} />
-            <span className="text-[10px] uppercase tracking-[0.25em] text-white/40">
-              Admin
-            </span>
-          </div>
-          <button
-            onClick={logout}
-            className="text-sm text-white/50 hover:text-white px-3 py-2 rounded-lg glass"
-          >
-            Sair
-          </button>
-        </div>
-      </div>
-
+    <div className="w-full">
       <div className="mx-auto max-w-[1300px] px-4 sm:px-8 py-8 space-y-8">
+        <h1 className="font-display text-3xl">
+          VISÃO <span className="text-brand">GERAL</span>
+        </h1>
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
           <Stat label="Usuários" value={String(stats.users)} />
@@ -91,7 +71,7 @@ export default function AdminDashboard({
         <Units units={units} unitPercent={eco.unit_percent} onChange={refresh} />
         <Config eco={eco} onChange={refresh} />
       </div>
-    </main>
+    </div>
   );
 }
 

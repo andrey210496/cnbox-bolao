@@ -200,6 +200,58 @@ export async function getBalance(): Promise<number> {
   return r.balance ?? 0;
 }
 
+// ---------- Estatísticas financeiras (dashboard) ----------
+export interface AsaasStatistics {
+  quantity: number; // nº de cobranças
+  value: number; // soma do valor bruto
+  netValue: number; // soma do valor líquido (já descontada a tarifa do Asaas)
+}
+
+/** Totais de cobranças por status/método. tarifa = value - netValue. */
+export async function getPaymentStatistics(params: {
+  status?: string; // PENDING | CONFIRMED | RECEIVED | OVERDUE
+  billingType?: string; // PIX | CREDIT_CARD | DEBIT_CARD | BOLETO
+}): Promise<AsaasStatistics> {
+  const q = new URLSearchParams();
+  if (params.status) q.set("status", params.status);
+  if (params.billingType) q.set("billingType", params.billingType);
+  const qs = q.toString();
+  const r = await request<Partial<AsaasStatistics>>(
+    `/finance/payment/statistics${qs ? `?${qs}` : ""}`
+  );
+  return {
+    quantity: r.quantity ?? 0,
+    value: r.value ?? 0,
+    netValue: r.netValue ?? 0,
+  };
+}
+
+export interface AsaasPaymentItem {
+  id: string;
+  value: number;
+  netValue: number;
+  billingType: string;
+  status: string;
+  paymentDate?: string | null;
+  estimatedCreditDate?: string | null;
+  creditDate?: string | null;
+}
+
+/** Lista cobranças (paginada). Usado para os prazos de liberação. */
+export async function listPayments(params: {
+  status?: string;
+  billingType?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<{ data: AsaasPaymentItem[]; hasMore: boolean; totalCount: number }> {
+  const q = new URLSearchParams();
+  if (params.status) q.set("status", params.status);
+  if (params.billingType) q.set("billingType", params.billingType);
+  q.set("limit", String(params.limit ?? 100));
+  q.set("offset", String(params.offset ?? 0));
+  return request(`/payments?${q.toString()}`);
+}
+
 export function isTransferFailed(status: string): boolean {
   return ["FAILED", "CANCELLED"].includes(status);
 }
