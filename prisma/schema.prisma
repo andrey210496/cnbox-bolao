@@ -93,6 +93,7 @@ model Bet {
   status          String    @default("PENDING") // PENDING | CONFIRMED | EXPIRED | FAILED | REFUNDED
   asaasCustomerId String?
   asaasPaymentId  String?   @unique
+  checkoutUrl     String? // página de pagamento do Asaas (PIX, débito, crédito à vista)
   pixPayload      String?
   pixQrImage      String?
   pixExpiration   DateTime?
@@ -137,6 +138,7 @@ model SpecialistOrder {
   status          String    @default("PENDING") // PENDING | CONFIRMED | EXPIRED | FAILED | REFUNDED
   asaasCustomerId String?
   asaasPaymentId  String?   @unique
+  checkoutUrl     String? // página de pagamento do Asaas (PIX, débito, crédito à vista)
   pixPayload      String?
   pixQrImage      String?
   pixExpiration   DateTime?

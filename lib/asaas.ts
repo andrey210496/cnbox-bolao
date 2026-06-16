@@ -111,6 +111,38 @@ export async function getPixQrCode(paymentId: string): Promise<AsaasPixQrCode> {
   return request<AsaasPixQrCode>(`/payments/${paymentId}/pixQrCode`);
 }
 
+/**
+ * Cria uma cobrança "aberta" (billingType UNDEFINED): a fatura do Asaas (invoiceUrl)
+ * deixa o cliente escolher PIX, cartão de débito ou crédito.
+ * Crédito à vista e a exclusão de boleto são definidos nas configurações da conta Asaas.
+ */
+export async function createCheckoutPayment(params: {
+  customer: string;
+  value: number;
+  description: string;
+  externalReference?: string;
+  successUrl?: string;
+}): Promise<AsaasPayment> {
+  const due = new Date();
+  due.setDate(due.getDate() + 1);
+  const dueDate = due.toISOString().slice(0, 10);
+
+  return request<AsaasPayment>("/payments", {
+    method: "POST",
+    body: JSON.stringify({
+      customer: params.customer,
+      billingType: "UNDEFINED", // PIX + cartão (crédito e débito) na fatura
+      value: params.value,
+      dueDate,
+      description: params.description,
+      externalReference: params.externalReference,
+      ...(params.successUrl
+        ? { callback: { successUrl: params.successUrl, autoRedirect: true } }
+        : {}),
+    }),
+  });
+}
+
 export async function getPayment(paymentId: string): Promise<AsaasPayment> {
   return request<AsaasPayment>(`/payments/${paymentId}`);
 }

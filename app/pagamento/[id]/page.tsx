@@ -11,8 +11,7 @@ type BetData = {
   homeScore: number;
   awayScore: number;
   amount: number;
-  pixPayload: string | null;
-  pixQrImage: string | null;
+  checkoutUrl: string | null;
   homeTeam: string;
   awayTeam: string;
 };
@@ -26,7 +25,6 @@ export default function PagamentoPage() {
   const id = params.id;
   const [bet, setBet] = useState<BetData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = useCallback(async () => {
@@ -52,17 +50,6 @@ export default function PagamentoPage() {
     };
   }, [load]);
 
-  async function copy() {
-    if (!bet?.pixPayload) return;
-    try {
-      await navigator.clipboard.writeText(bet.pixPayload);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    } catch {
-      setError("Não foi possível copiar. Copie manualmente.");
-    }
-  }
-
   const confirmed = bet?.status === "CONFIRMED";
 
   return (
@@ -87,7 +74,7 @@ export default function PagamentoPage() {
 
         {!bet && !error && (
           <div className="card-premium rounded-2xl p-10 text-center text-white/50">
-            Carregando seu PIX...
+            Carregando seu pagamento...
           </div>
         )}
 
@@ -121,7 +108,7 @@ export default function PagamentoPage() {
           <div>
             <div className="text-center mb-6">
               <h1 className="font-display text-3xl">
-                PAGUE VIA <span className="text-brand">PIX</span>
+                FINALIZE SEU <span className="text-brand">PALPITE</span>
               </h1>
               <p className="text-white/60 mt-2 text-sm">
                 {bet.homeTeam}{" "}
@@ -132,54 +119,40 @@ export default function PagamentoPage() {
               </p>
             </div>
 
-            <div className="card-premium rounded-3xl p-6">
-              {bet.pixQrImage ? (
-                <div className="bg-white rounded-2xl p-4 mx-auto w-fit glow-brand">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={`data:image/png;base64,${bet.pixQrImage}`}
-                    alt="QR Code PIX"
-                    width={220}
-                    height={220}
-                    className="w-[220px] h-[220px]"
-                  />
-                </div>
+            <div className="card-premium rounded-3xl p-6 text-center">
+              <p className="text-white/70 text-sm mb-1">Escolha como pagar:</p>
+              <div className="flex items-center justify-center flex-wrap gap-2 text-xs text-white/55 mb-5">
+                <span className="rounded-full bg-ink/60 border border-white/10 px-2.5 py-1">PIX</span>
+                <span className="rounded-full bg-ink/60 border border-white/10 px-2.5 py-1">Cartão de débito</span>
+                <span className="rounded-full bg-ink/60 border border-white/10 px-2.5 py-1">Crédito à vista</span>
+              </div>
+
+              {bet.checkoutUrl ? (
+                <a
+                  href={bet.checkoutUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-primary block w-full py-4 rounded-2xl font-display text-lg tracking-wide glow-brand"
+                >
+                  PAGAR {brl(bet.amount)} →
+                </a>
               ) : (
-                <p className="text-center text-white/50 py-10">
-                  QR Code indisponível. Use o código copia e cola.
-                </p>
+                <p className="text-white/50 py-6">Gerando seu pagamento...</p>
               )}
 
               <div className="mt-5 flex items-center justify-center gap-2 text-sm text-white/60">
                 <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
-                Aguardando pagamento...
+                Aguardando pagamento... esta tela confirma sozinha ✅
               </div>
-
-              {bet.pixPayload && (
-                <div className="mt-5">
-                  <p className="text-xs uppercase tracking-widest text-white/40 mb-2">
-                    PIX Copia e Cola
-                  </p>
-                  <div className="flex items-stretch gap-2">
-                    <code className="flex-1 text-xs text-white/70 bg-ink/60 border border-white/10 rounded-lg px-3 py-2.5 truncate">
-                      {bet.pixPayload}
-                    </code>
-                    <button
-                      onClick={copy}
-                      className="btn-primary px-5 rounded-lg font-bold text-sm whitespace-nowrap"
-                    >
-                      {copied ? "Copiado!" : "Copiar"}
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
 
             <ol className="mt-6 space-y-2 text-sm text-white/50">
-              <li>1. Abra o app do seu banco e escolha PIX.</li>
-              <li>2. Escaneie o QR Code ou cole o código.</li>
-              <li>3. Confirme — esta tela atualiza sozinha. ✅</li>
+              <li>1. Clique em <strong className="text-white/70">Pagar</strong> e escolha PIX, débito ou crédito.</li>
+              <li>2. Conclua o pagamento na página segura do Asaas.</li>
+              <li>3. Volte aqui — assim que cair, seu palpite é confirmado. 🎉</li>
             </ol>
+
+            {error && <p className="mt-4 text-sm text-red-400 text-center">{error}</p>}
           </div>
         )}
       </div>

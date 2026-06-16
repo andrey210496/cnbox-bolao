@@ -7,8 +7,7 @@ type Order = {
   id: string;
   status: string;
   amount: number;
-  pixPayload: string | null;
-  pixQrImage: string | null;
+  checkoutUrl: string | null;
 };
 
 const BENEFITS = [
@@ -30,7 +29,6 @@ export default function SpecialistPanel({
   const [order, setOrder] = useState<Order | null>(null);
   const [buying, setBuying] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const [popup, setPopup] = useState(false);
   const poll = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -128,15 +126,6 @@ export default function SpecialistPanel({
     } finally {
       setBuying(false);
     }
-  }
-
-  async function copy() {
-    if (!order?.pixPayload) return;
-    try {
-      await navigator.clipboard.writeText(order.pixPayload);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    } catch {}
   }
 
   if (loading) {
@@ -254,37 +243,32 @@ export default function SpecialistPanel({
     );
   }
 
-  // ===== PEDIDO PENDENTE (mostra o PIX) =====
-  if (order && order.status === "PENDING" && order.pixPayload) {
+  // ===== PEDIDO PENDENTE (mostra o checkout) =====
+  if (order && order.status === "PENDING" && order.checkoutUrl) {
     return (
-      <div className="card-premium rounded-3xl p-6 mt-5">
+      <div className="card-premium rounded-3xl p-6 mt-5 text-center">
         <h3 className="font-display text-xl tracking-wide mb-1">
           DESBLOQUEIE O <span className="text-brand">ESPECIALISTA</span>
         </h3>
         <p className="text-sm text-white/60 mb-4">
-          Pague {formatBRL(order.amount)} no PIX para liberar a análise deste jogo.
+          Pague {formatBRL(order.amount)} para liberar o chat com a análise deste jogo.
         </p>
-        {order.pixQrImage && (
-          <div className="bg-white rounded-2xl p-3 w-fit mx-auto glow-brand">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={`data:image/png;base64,${order.pixQrImage}`}
-              alt="QR Code PIX"
-              className="w-[190px] h-[190px]"
-            />
-          </div>
-        )}
+        <div className="flex items-center justify-center flex-wrap gap-2 text-xs text-white/55 mb-4">
+          <span className="rounded-full bg-ink/60 border border-white/10 px-2.5 py-1">PIX</span>
+          <span className="rounded-full bg-ink/60 border border-white/10 px-2.5 py-1">Débito</span>
+          <span className="rounded-full bg-ink/60 border border-white/10 px-2.5 py-1">Crédito à vista</span>
+        </div>
+        <a
+          href={order.checkoutUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn-primary block w-full py-3.5 rounded-2xl font-bold glow-brand"
+        >
+          PAGAR {formatBRL(order.amount)} →
+        </a>
         <div className="mt-4 flex items-center justify-center gap-2 text-sm text-white/60">
           <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
           Aguardando pagamento... libera sozinho ao confirmar
-        </div>
-        <div className="mt-4 flex items-stretch gap-2">
-          <code className="flex-1 text-xs text-white/70 bg-ink/60 border border-white/10 rounded-lg px-3 py-2.5 truncate">
-            {order.pixPayload}
-          </code>
-          <button onClick={copy} className="btn-primary px-5 rounded-lg font-bold text-sm whitespace-nowrap">
-            {copied ? "Copiado!" : "Copiar"}
-          </button>
         </div>
         {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
       </div>

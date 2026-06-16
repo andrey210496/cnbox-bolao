@@ -41,8 +41,7 @@ export async function GET(
     homeScore: bet.homeScore,
     awayScore: bet.awayScore,
     amount: bet.amount,
-    pixPayload: bet.pixPayload,
-    pixQrImage: bet.pixQrImage,
+    checkoutUrl: bet.checkoutUrl,
     homeTeam: bet.game.homeTeam,
     awayTeam: bet.game.awayTeam,
   });

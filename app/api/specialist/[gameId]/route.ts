@@ -4,8 +4,7 @@ import { getUserId } from "@/lib/auth";
 import { getEconomics } from "@/lib/economics";
 import {
   createCustomer,
-  createPixPayment,
-  getPixQrCode,
+  createCheckoutPayment,
   getPayment,
   isPaidStatus,
 } from "@/lib/asaas";
@@ -51,8 +50,7 @@ export async function GET(
           id: order.id,
           status: order.status,
           amount: order.amount,
-          pixPayload: order.pixPayload,
-          pixQrImage: order.pixQrImage,
+          checkoutUrl: order.checkoutUrl,
         }
       : null,
   });
@@ -87,23 +85,18 @@ export async function POST(
 
     // reaproveita pedido pendente, se houver
     const pending = await prisma.specialistOrder.findFirst({
-      where: { userId: uid, gameId, status: "PENDING", pixPayload: { not: null } },
+      where: { userId: uid, gameId, status: "PENDING", checkoutUrl: { not: null } },
       orderBy: { createdAt: "desc" },
     });
     if (pending) return NextResponse.json({ id: pending.id });
 
     const eco = await getEconomics();
+    const site = process.env.NEXT_PUBLIC_SITE_URL || new URL(req.url).origin;
     const customer = await createCustomer({
       name: user.fullName,
       cpfCnpj: user.cpf,
       externalReference: uid,
     });
-    const payment = await createPixPayment({
-      customer: customer.id,
-      value: eco.specialist_price,
-      description: `Especialista CNBOX — ${game.homeTeam} x ${game.awayTeam}`,
-    });
-    const qr = await getPixQrCode(payment.id);
 
     const order = await prisma.specialistOrder.create({
       data: {
@@ -112,16 +105,30 @@ export async function POST(
         amount: eco.specialist_price,
         status: "PENDING",
         asaasCustomerId: customer.id,
-        asaasPaymentId: payment.id,
-        pixPayload: qr.payload,
-        pixQrImage: qr.encodedImage,
-        pixExpiration: qr.expirationDate ? new Date(qr.expirationDate) : null,
       },
       select: { id: true },
     });
+
+    try {
+      const payment = await createCheckoutPayment({
+        customer: customer.id,
+        value: eco.specialist_price,
+        description: `Especialista CNBOX — ${game.homeTeam} x ${game.awayTeam}`,
+        externalReference: order.id,
+        successUrl: `${site}/app/jogo/${gameId}#especialista`,
+      });
+      await prisma.specialistOrder.update({
+        where: { id: order.id },
+        data: { asaasPaymentId: payment.id, checkoutUrl: payment.invoiceUrl },
+      });
+    } catch (err) {
+      await prisma.specialistOrder.delete({ where: { id: order.id } }).catch(() => {});
+      throw err;
+    }
+
     return NextResponse.json({ id: order.id });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Erro ao gerar o PIX.";
+    const message = err instanceof Error ? err.message : "Erro ao gerar o pagamento.";
     console.error("[specialist] erro:", message);
     return NextResponse.json({ error: message }, { status: 500 });
   }

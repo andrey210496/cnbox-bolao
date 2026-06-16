@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth";
 import { getEconomics, splitAmount } from "@/lib/economics";
-import { createCustomer, createPixPayment, getPixQrCode } from "@/lib/asaas";
+import { createCustomer, createCheckoutPayment } from "@/lib/asaas";
 import { rateLimit, clientIp, maybeSweep } from "@/lib/ratelimit";
 
 export async function POST(req: Request) {
@@ -70,18 +70,7 @@ export async function POST(req: Request) {
       externalReference: user.id,
     });
 
-    // 2) Cobrança PIX
-    const description = `Bolão CNBOX — ${game.homeTeam} x ${game.awayTeam} | Palpite ${homeScore}x${awayScore}`;
-    const payment = await createPixPayment({
-      customer: customer.id,
-      value: eco.bet_price,
-      description,
-    });
-
-    // 3) QR Code PIX
-    const qr = await getPixQrCode(payment.id);
-
-    // 4) Salva o palpite
+    // 2) Salva o palpite (PENDING) para obter o id antes da cobrança
     const bet = await prisma.bet.create({
       data: {
         userId: user.id,
@@ -95,13 +84,30 @@ export async function POST(req: Request) {
         unitCommission: split.unitCommission,
         status: "PENDING",
         asaasCustomerId: customer.id,
-        asaasPaymentId: payment.id,
-        pixPayload: qr.payload,
-        pixQrImage: qr.encodedImage,
-        pixExpiration: qr.expirationDate ? new Date(qr.expirationDate) : null,
       },
       select: { id: true },
     });
+
+    // 3) Cobrança aberta (PIX + débito + crédito à vista) com retorno pra nossa tela
+    const site = process.env.NEXT_PUBLIC_SITE_URL || new URL(req.url).origin;
+    const description = `Bolão CNBOX — ${game.homeTeam} x ${game.awayTeam} | Palpite ${homeScore}x${awayScore}`;
+    try {
+      const payment = await createCheckoutPayment({
+        customer: customer.id,
+        value: eco.bet_price,
+        description,
+        externalReference: bet.id,
+        successUrl: `${site}/pagamento/${bet.id}`,
+      });
+      await prisma.bet.update({
+        where: { id: bet.id },
+        data: { asaasPaymentId: payment.id, checkoutUrl: payment.invoiceUrl },
+      });
+    } catch (err) {
+      // se a cobrança falhar, remove o palpite órfão
+      await prisma.bet.delete({ where: { id: bet.id } }).catch(() => {});
+      throw err;
+    }
 
     return NextResponse.json({ id: bet.id });
   } catch (err) {
