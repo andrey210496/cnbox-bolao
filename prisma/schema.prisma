@@ -1,0 +1,168 @@
+// Plataforma de Bolões CNBOX — Copa do Mundo (v2)
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Unidade (academia/franquia) que divulga o bolão
+model Unit {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique // código do link rastreável: /u/<slug>
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  users User[]
+  bets  Bet[]
+
+  @@index([slug])
+}
+
+// Aluno/apostador
+model User {
+  id           String   @id @default(cuid())
+  fullName     String
+  phone        String
+  cpf          String   @unique
+  pixKey       String // chave PIX para receber o prêmio
+  pixKeyType   String   @default("CPF") // CPF | EMAIL | PHONE | EVP
+  passwordHash String
+  unitId       String?
+  unit         Unit?    @relation(fields: [unitId], references: [id])
+  createdAt    DateTime @default(now())
+
+  bets Bet[]
+
+  @@index([cpf])
+}
+
+// Jogo da Copa
+model Game {
+  id           String    @id @default(cuid())
+  homeTeam     String
+  homeCode     String // arquivo da bandeira em /public/flags
+  awayTeam     String
+  awayCode     String
+  competition  String    @default("Copa do Mundo FIFA 2026")
+  stage        String? // fase (Grupos, Oitavas, etc.)
+  notes        String? // contexto opcional p/ o Especialista IA (lesões, fase, etc.)
+  kickoffAt    DateTime
+  status       String    @default("SCHEDULED") // SCHEDULED | CLOSED | FINISHED | CANCELED
+  finalHome    Int?
+  finalAway    Int?
+  finishedAt   DateTime?
+  payoutStatus String    @default("NONE") // NONE | COMPUTED | APPROVED | PAID
+  createdAt    DateTime  @default(now())
+
+  bets Bet[]
+
+  @@index([status])
+  @@index([kickoffAt])
+}
+
+// Palpite
+model Bet {
+  id     String  @id @default(cuid())
+  userId String
+  user   User    @relation(fields: [userId], references: [id])
+  gameId String
+  game   Game    @relation(fields: [gameId], references: [id])
+  unitId String?
+  unit   Unit?   @relation(fields: [unitId], references: [id])
+
+  homeScore Int
+  awayScore Int
+
+  amount            Float @default(10) // valor pago
+  prizeContribution Float // parte que vai pro prêmio (80%)
+  houseCut          Float // parte da casa (20%)
+  unitCommission    Float @default(0) // comissão da unidade (sai da casa)
+
+  status          String    @default("PENDING") // PENDING | CONFIRMED | EXPIRED | FAILED | REFUNDED
+  asaasCustomerId String?
+  asaasPaymentId  String?   @unique
+  pixPayload      String?
+  pixQrImage      String?
+  pixExpiration   DateTime?
+
+  isWinner Boolean @default(false)
+  payout   Payout?
+
+  createdAt   DateTime  @default(now())
+  confirmedAt DateTime?
+
+  @@index([gameId, status])
+  @@index([userId])
+  @@index([unitId, status])
+}
+
+// Repasse PIX ao ganhador (pagamento em massa)
+model Payout {
+  id              String    @id @default(cuid())
+  betId           String    @unique
+  bet             Bet       @relation(fields: [betId], references: [id])
+  gameId          String
+  userId          String
+  pixKey          String
+  amount          Float
+  status          String    @default("PENDING") // PENDING | APPROVED | PROCESSING | SENT | FAILED
+  asaasTransferId String?   @unique
+  failReason      String?
+  createdAt       DateTime  @default(now())
+  sentAt          DateTime?
+
+  @@index([gameId, status])
+}
+
+// Compra do "Especialista CNBOX" (IA paga, 100% da casa) — acesso por jogo
+model SpecialistOrder {
+  id     String @id @default(cuid())
+  userId String
+  gameId String
+
+  amount Float @default(9.9)
+
+  status          String    @default("PENDING") // PENDING | CONFIRMED | EXPIRED | FAILED | REFUNDED
+  asaasCustomerId String?
+  asaasPaymentId  String?   @unique
+  pixPayload      String?
+  pixQrImage      String?
+  pixExpiration   DateTime?
+
+  createdAt   DateTime  @default(now())
+  confirmedAt DateTime?
+
+  @@index([userId, gameId])
+  @@index([status])
+}
+
+// Cache da análise da IA por jogo (gera uma vez, reaproveita)
+model GameAnalysis {
+  id        String   @id @default(cuid())
+  gameId    String   @unique
+  content   String // texto da análise
+  model     String?
+  createdAt DateTime @default(now())
+}
+
+// Configurações editáveis (economia do bolão, etc.)
+model Setting {
+  key   String @id
+  value String
+}
+
+// Log de auditoria (ações sensíveis: admin, repasses)
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  actor     String // "admin" | userId | "system"
+  detail    String?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}

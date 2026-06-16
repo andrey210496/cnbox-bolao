@@ -1,0 +1,227 @@
+@import "tailwindcss";
+
+@theme {
+  /* Paleta da marca CNBOX: verde da logo + branco */
+  --color-brand: #29e31b;
+  --color-brand-light: #5cff4d;
+  --color-brand-dark: #15a80b;
+  /* "gold" foi reaproveitado como BRANCO (prêmio/vencedores) — mantém a paleta verde+branco */
+  --color-gold: #ffffff;
+  --color-live: #ff3b3b;
+  --color-ink: #04120a;
+  --color-surface: #0a140d;
+  --color-surface-2: #0f1d13;
+
+  --font-display: var(--font-anton), system-ui, sans-serif;
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: #0a1c13;
+  color: #eafff0;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  background-image:
+    radial-gradient(100% 70% at 50% -15%, rgba(41, 227, 27, 0.15), transparent 60%),
+    radial-gradient(60% 45% at 88% 8%, rgba(92, 255, 77, 0.06), transparent 55%),
+    radial-gradient(65% 55% at 6% 92%, rgba(25, 168, 11, 0.09), transparent 60%),
+    linear-gradient(180deg, #0d271a 0%, #0a1c13 42%, #08160f 100%);
+  background-attachment: fixed;
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: 0.015em;
+}
+
+/* ---------- Superfícies ---------- */
+.glass {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.07),
+    rgba(255, 255, 255, 0.02)
+  );
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  backdrop-filter: blur(14px);
+}
+
+.card-premium {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(18, 38, 24, 0.9), rgba(7, 16, 10, 0.92));
+  border: 1px solid rgba(41, 227, 27, 0.16);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 24px 60px -28px rgba(0, 0, 0, 0.9);
+}
+
+.brand-border {
+  border: 1px solid rgba(41, 227, 27, 0.35);
+}
+
+/* ---------- Glows ---------- */
+.glow-brand {
+  box-shadow:
+    0 0 0 1px rgba(41, 227, 27, 0.32),
+    0 18px 60px -16px rgba(41, 227, 27, 0.55);
+}
+
+/* glow branco (prêmio / destaque) */
+.glow-gold {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.3),
+    0 16px 50px -18px rgba(255, 255, 255, 0.3);
+}
+
+.text-glow {
+  text-shadow: 0 0 28px rgba(92, 255, 77, 0.6);
+}
+
+/* texto branco com brilho (prêmio) */
+.text-glow-gold {
+  text-shadow: 0 0 26px rgba(255, 255, 255, 0.5);
+}
+
+/* ---------- Botões ---------- */
+.btn-primary {
+  position: relative;
+  background: linear-gradient(135deg, #5cff4d 0%, #29e31b 45%, #15a80b 100%);
+  color: #04130a;
+  box-shadow:
+    0 0 0 1px rgba(92, 255, 77, 0.4),
+    0 14px 40px -10px rgba(41, 227, 27, 0.6);
+  overflow: hidden;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+.btn-primary:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.06);
+  box-shadow:
+    0 0 0 1px rgba(92, 255, 77, 0.6),
+    0 22px 55px -10px rgba(41, 227, 27, 0.75);
+}
+.btn-primary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 25%,
+    rgba(255, 255, 255, 0.45) 50%,
+    transparent 75%
+  );
+  background-size: 250% 100%;
+  animation: shimmer 3.2s infinite;
+  pointer-events: none;
+}
+
+@keyframes shimmer {
+  0% { background-position: 150% 0; }
+  100% { background-position: -150% 0; }
+}
+
+/* ---------- Fundos ---------- */
+.pitch-lines {
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.03) 0px,
+    rgba(255, 255, 255, 0.03) 2px,
+    transparent 2px,
+    transparent 72px
+  );
+}
+
+.stadium-beams {
+  background-image:
+    conic-gradient(from 200deg at 18% -10%, transparent 0deg, rgba(92, 255, 77, 0.05) 16deg, transparent 32deg),
+    conic-gradient(from 160deg at 82% -10%, transparent 0deg, rgba(41, 227, 27, 0.045) 16deg, transparent 32deg);
+}
+
+.grid-floor {
+  background-image:
+    linear-gradient(rgba(92, 255, 77, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(92, 255, 77, 0.035) 1px, transparent 1px);
+  background-size: 52px 52px;
+  mask-image: radial-gradient(70% 60% at 50% 40%, #000 0%, transparent 80%);
+}
+
+/* ---------- Placar LED ---------- */
+.scoreboard {
+  font-family: var(--font-display);
+  background: linear-gradient(180deg, #0a1f12, #04100a);
+  border: 1px solid rgba(92, 255, 77, 0.25);
+  box-shadow:
+    inset 0 0 30px rgba(0, 0, 0, 0.8),
+    inset 0 1px 0 rgba(92, 255, 77, 0.12);
+}
+
+/* ---------- Animações ---------- */
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(41, 227, 27, 0.5); }
+  70% { box-shadow: 0 0 0 14px rgba(41, 227, 27, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(41, 227, 27, 0); }
+}
+.pulse-ring { animation: pulse-ring 2s infinite; }
+
+@keyframes live-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.live-dot { animation: live-blink 1.2s infinite; }
+
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.marquee-track {
+  display: flex;
+  flex-wrap: nowrap;
+  width: max-content;
+  white-space: nowrap;
+  animation: marquee 28s linear infinite;
+}
+.marquee-track > * {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.marquee-track:hover { animation-play-state: paused; }
+
+@keyframes float-up {
+  0% { transform: translateY(8px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+.float-up { animation: float-up 0.5s ease both; }
+
+/* ---------- Inputs ---------- */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+::selection {
+  background: rgba(41, 227, 27, 0.35);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: #08160f; }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(#1c3a26, #0f1d13);
+  border-radius: 8px;
+  border: 2px solid #08160f;
+}

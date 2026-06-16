@@ -1,0 +1,128 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getUserId } from "@/lib/auth";
+import { getEconomics } from "@/lib/economics";
+import {
+  createCustomer,
+  createPixPayment,
+  getPixQrCode,
+  getPayment,
+  isPaidStatus,
+} from "@/lib/asaas";
+import { hasSpecialistAccess } from "@/lib/specialist";
+import { rateLimit, clientIp, maybeSweep } from "@/lib/ratelimit";
+
+// GET: status do acesso + pedido pendente (para a tela de pagamento)
+export async function GET(
+  _req: Request,
+  { params }: { params: Promise<{ gameId: string }> }
+) {
+  const uid = await getUserId();
+  if (!uid) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+  const { gameId } = await params;
+
+  if (await hasSpecialistAccess(uid, gameId)) {
+    return NextResponse.json({ access: true, order: null });
+  }
+
+  const order = await prisma.specialistOrder.findFirst({
+    where: { userId: uid, gameId, status: { in: ["PENDING", "CONFIRMED"] } },
+    orderBy: { createdAt: "desc" },
+  });
+
+  // auto-confirma consultando o Asaas
+  if (order && order.status === "PENDING" && order.asaasPaymentId) {
+    try {
+      const p = await getPayment(order.asaasPaymentId);
+      if (isPaidStatus(p.status)) {
+        await prisma.specialistOrder.update({
+          where: { id: order.id },
+          data: { status: "CONFIRMED", confirmedAt: new Date() },
+        });
+        return NextResponse.json({ access: true, order: null });
+      }
+    } catch {}
+  }
+
+  return NextResponse.json({
+    access: false,
+    order: order
+      ? {
+          id: order.id,
+          status: order.status,
+          amount: order.amount,
+          pixPayload: order.pixPayload,
+          pixQrImage: order.pixQrImage,
+        }
+      : null,
+  });
+}
+
+// POST: contratar o Especialista (gera cobrança PIX)
+export async function POST(
+  req: Request,
+  { params }: { params: Promise<{ gameId: string }> }
+) {
+  const uid = await getUserId();
+  if (!uid) return NextResponse.json({ error: "Faça login." }, { status: 401 });
+  maybeSweep();
+  if (!rateLimit(`specialist:${uid}`, 15, 5 * 60 * 1000)) {
+    return NextResponse.json({ error: "Muitas tentativas. Aguarde." }, { status: 429 });
+  }
+  const { gameId } = await params;
+
+  try {
+    if (await hasSpecialistAccess(uid, gameId)) {
+      return NextResponse.json({ error: "Você já tem o Especialista deste jogo." }, { status: 400 });
+    }
+
+    const game = await prisma.game.findUnique({ where: { id: gameId } });
+    if (!game) return NextResponse.json({ error: "Jogo não encontrado." }, { status: 404 });
+
+    const user = await prisma.user.findUnique({
+      where: { id: uid },
+      select: { fullName: true, cpf: true },
+    });
+    if (!user) return NextResponse.json({ error: "Usuário inválido." }, { status: 401 });
+
+    // reaproveita pedido pendente, se houver
+    const pending = await prisma.specialistOrder.findFirst({
+      where: { userId: uid, gameId, status: "PENDING", pixPayload: { not: null } },
+      orderBy: { createdAt: "desc" },
+    });
+    if (pending) return NextResponse.json({ id: pending.id });
+
+    const eco = await getEconomics();
+    const customer = await createCustomer({
+      name: user.fullName,
+      cpfCnpj: user.cpf,
+      externalReference: uid,
+    });
+    const payment = await createPixPayment({
+      customer: customer.id,
+      value: eco.specialist_price,
+      description: `Especialista CNBOX — ${game.homeTeam} x ${game.awayTeam}`,
+    });
+    const qr = await getPixQrCode(payment.id);
+
+    const order = await prisma.specialistOrder.create({
+      data: {
+        userId: uid,
+        gameId,
+        amount: eco.specialist_price,
+        status: "PENDING",
+        asaasCustomerId: customer.id,
+        asaasPaymentId: payment.id,
+        pixPayload: qr.payload,
+        pixQrImage: qr.encodedImage,
+        pixExpiration: qr.expirationDate ? new Date(qr.expirationDate) : null,
+      },
+      select: { id: true },
+    });
+    return NextResponse.json({ id: order.id });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Erro ao gerar o PIX.";
+    console.error("[specialist] erro:", message);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
