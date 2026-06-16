@@ -10,6 +10,7 @@ import {
   paymentSnapshot,
 } from "@/lib/asaas";
 import { hasUnusedDica } from "@/lib/specialist";
+import { isOpen } from "@/lib/games";
 import { rateLimit, clientIp, maybeSweep } from "@/lib/ratelimit";
 
 // GET: tem dica disponível? + pedido pendente (para a tela de pagamento)
@@ -82,6 +83,11 @@ export async function POST(
 
     const game = await prisma.game.findUnique({ where: { id: gameId } });
     if (!game) return NextResponse.json({ error: "Jogo não encontrado." }, { status: 404 });
+    if (!isOpen(game))
+      return NextResponse.json(
+        { error: "Este jogo já começou ou está fechado — dica indisponível." },
+        { status: 400 }
+      );
 
     const user = await prisma.user.findUnique({
       where: { id: uid },
