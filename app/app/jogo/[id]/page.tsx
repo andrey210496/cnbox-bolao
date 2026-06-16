@@ -73,7 +73,11 @@ export default async function JogoPage({
         )}
 
         {/* Especialista IA (produto pago, opcional) */}
-        {open && <SpecialistPanel gameId={game.id} price={eco.specialist_price} />}
+        {open && (
+          <div id="especialista" className="scroll-mt-24">
+            <SpecialistPanel gameId={game.id} price={eco.specialist_price} />
+          </div>
+        )}
 
         <p className="mt-6 text-center text-xs text-white/35">
           Cada palpite custa {formatBRL(eco.bet_price)}. Apuração e pagamento em até{" "}
