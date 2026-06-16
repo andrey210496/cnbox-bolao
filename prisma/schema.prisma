@@ -90,6 +90,11 @@ model Bet {
   houseCut          Float // parte da casa (20%)
   unitCommission    Float @default(0) // comissão da unidade (sai da casa)
 
+  // Snapshot financeiro do Asaas (capturado na confirmação) — para o dashboard do bolão
+  netValue            Float? // valor líquido (já com a tarifa do Asaas descontada)
+  billingType         String? // PIX | CREDIT_CARD | DEBIT_CARD
+  estimatedCreditDate DateTime? // data estimada de crédito na conta (cartão)
+
   status          String    @default("PENDING") // PENDING | CONFIRMED | EXPIRED | FAILED | REFUNDED
   asaasCustomerId String?
   asaasPaymentId  String?   @unique
@@ -134,6 +139,11 @@ model SpecialistOrder {
   gameId String
 
   amount Float @default(3)
+
+  // Snapshot financeiro do Asaas (capturado na confirmação)
+  netValue            Float?
+  billingType         String?
+  estimatedCreditDate DateTime?
 
   status          String    @default("PENDING") // PENDING | CONFIRMED | EXPIRED | FAILED | REFUNDED
   asaasCustomerId String?

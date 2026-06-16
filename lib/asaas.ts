@@ -64,7 +64,27 @@ export interface AsaasPayment {
   id: string;
   status: string;
   value: number;
+  netValue?: number;
+  billingType?: string;
+  estimatedCreditDate?: string | null;
+  creditDate?: string | null;
   invoiceUrl?: string;
+}
+
+/**
+ * Extrai os campos financeiros de um pagamento (do webhook ou do getPayment)
+ * para gravar no nosso banco — usado no dashboard do bolão.
+ */
+export function paymentSnapshot(p: {
+  netValue?: number | null;
+  billingType?: string | null;
+  estimatedCreditDate?: string | null;
+}): { netValue: number | null; billingType: string | null; estimatedCreditDate: Date | null } {
+  return {
+    netValue: typeof p?.netValue === "number" ? p.netValue : null,
+    billingType: p?.billingType ?? null,
+    estimatedCreditDate: p?.estimatedCreditDate ? new Date(p.estimatedCreditDate) : null,
+  };
 }
 
 export interface AsaasPixQrCode {

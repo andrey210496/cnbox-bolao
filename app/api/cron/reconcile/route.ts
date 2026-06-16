@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getPayment, isPaidStatus } from "@/lib/asaas";
+import { getPayment, isPaidStatus, paymentSnapshot } from "@/lib/asaas";
 
 // Reconciliação de backup: confirma palpites pagos que o webhook não pegou.
 // Chame por um cron (EasyPanel/externo) a cada 1-2 min:
@@ -32,7 +32,7 @@ export async function GET(req: Request) {
       if (isPaidStatus(payment.status)) {
         await prisma.bet.update({
           where: { id: b.id },
-          data: { status: "CONFIRMED", confirmedAt: new Date() },
+          data: { status: "CONFIRMED", confirmedAt: new Date(), ...paymentSnapshot(payment) },
         });
         confirmed++;
       } else if (["REFUNDED", "REFUND_REQUESTED"].includes(payment.status)) {
@@ -64,7 +64,7 @@ export async function GET(req: Request) {
       if (isPaidStatus(p.status)) {
         await prisma.specialistOrder.update({
           where: { id: o.id },
-          data: { status: "CONFIRMED", confirmedAt: new Date() },
+          data: { status: "CONFIRMED", confirmedAt: new Date(), ...paymentSnapshot(p) },
         });
         specialistConfirmed++;
       }

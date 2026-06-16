@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { isPaidStatus } from "@/lib/asaas";
+import { isPaidStatus, paymentSnapshot } from "@/lib/asaas";
 
 // Webhook do Asaas — confirma pagamentos (palpites) e transferências (prêmios).
 // Configure em Asaas > Configurações > Webhooks:
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
           if (paidNow && order.status !== "CONFIRMED") {
             await prisma.specialistOrder.update({
               where: { id: order.id },
-              data: { status: "CONFIRMED", confirmedAt: new Date() },
+              data: { status: "CONFIRMED", confirmedAt: new Date(), ...paymentSnapshot(p) },
             });
           } else if (type === "PAYMENT_REFUNDED" && order.status !== "REFUNDED") {
             await prisma.specialistOrder.update({
@@ -54,7 +54,7 @@ export async function POST(req: Request) {
       if (paid && bet.status !== "CONFIRMED") {
         await prisma.bet.update({
           where: { id: bet.id },
-          data: { status: "CONFIRMED", confirmedAt: new Date() },
+          data: { status: "CONFIRMED", confirmedAt: new Date(), ...paymentSnapshot(p) },
         });
       } else if (type === "PAYMENT_REFUNDED" && bet.status !== "REFUNDED") {
         await prisma.bet.update({

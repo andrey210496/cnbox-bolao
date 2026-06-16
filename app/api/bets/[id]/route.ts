@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserId } from "@/lib/auth";
-import { getPayment, isPaidStatus } from "@/lib/asaas";
+import { getPayment, isPaidStatus, paymentSnapshot } from "@/lib/asaas";
 
 export async function GET(
   _req: Request,
@@ -26,7 +26,7 @@ export async function GET(
       if (isPaidStatus(payment.status)) {
         await prisma.bet.update({
           where: { id: bet.id },
-          data: { status: "CONFIRMED", confirmedAt: new Date() },
+          data: { status: "CONFIRMED", confirmedAt: new Date(), ...paymentSnapshot(payment) },
         });
         bet.status = "CONFIRMED";
       }

@@ -7,6 +7,7 @@ import {
   createCheckoutPayment,
   getPayment,
   isPaidStatus,
+  paymentSnapshot,
 } from "@/lib/asaas";
 import { hasUnusedDica } from "@/lib/specialist";
 import { rateLimit, clientIp, maybeSweep } from "@/lib/ratelimit";
@@ -37,7 +38,7 @@ export async function GET(
       if (isPaidStatus(p.status)) {
         await prisma.specialistOrder.update({
           where: { id: order.id },
-          data: { status: "CONFIRMED", confirmedAt: new Date() },
+          data: { status: "CONFIRMED", confirmedAt: new Date(), ...paymentSnapshot(p) },
         });
         return NextResponse.json({ hasDica: true, order: null });
       }
