@@ -28,13 +28,50 @@ export default function SpecialistPanel({
   const [loading, setLoading] = useState(true);
   const [access, setAccess] = useState(false);
   const [order, setOrder] = useState<Order | null>(null);
-  const [analysis, setAnalysis] = useState<string | null>(null);
-  const [loadingAnalysis, setLoadingAnalysis] = useState(false);
   const [buying, setBuying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [popup, setPopup] = useState(false);
   const poll = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Chat com o agente de IA (só liberado para quem comprou)
+  type Turn = { role: "user" | "assistant"; content: string };
+  const [chat, setChat] = useState<Turn[]>([]);
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const chatEnd = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    chatEnd.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chat, sending]);
+
+  const sendChat = useCallback(
+    async (text: string) => {
+      const msg = text.trim();
+      if (!msg || sending) return;
+      const next: Turn[] = [...chat, { role: "user", content: msg }];
+      setChat(next);
+      setInput("");
+      setSending(true);
+      setError(null);
+      try {
+        const res = await fetch(`/api/specialist/${gameId}/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: next }),
+        });
+        const d = await res.json();
+        if (!res.ok) throw new Error(d?.error ?? "Erro ao conversar.");
+        setChat((c) => [...c, { role: "assistant", content: d.reply }]);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Erro.");
+        setChat((c) => c.slice(0, -1)); // desfaz a msg do usuário em caso de erro
+      } finally {
+        setSending(false);
+      }
+    },
+    [chat, sending, gameId]
+  );
 
   const load = useCallback(async () => {
     try {
@@ -93,21 +130,6 @@ export default function SpecialistPanel({
     }
   }
 
-  async function viewAnalysis() {
-    setLoadingAnalysis(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/specialist/${gameId}/analysis`, { cache: "no-store" });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d?.error ?? "Erro ao carregar a análise.");
-      setAnalysis(d.content);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Erro.");
-    } finally {
-      setLoadingAnalysis(false);
-    }
-  }
-
   async function copy() {
     if (!order?.pixPayload) return;
     try {
@@ -125,35 +147,107 @@ export default function SpecialistPanel({
     );
   }
 
-  // ===== TEM ACESSO =====
+  // ===== TEM ACESSO — CHAT COM O AGENTE =====
   if (access) {
+    const SUGGESTIONS = [
+      "Qual o placar mais provável?",
+      "Faça a análise completa do jogo",
+      "Quem tem mais chance de vencer?",
+    ];
     return (
-      <div className="card-premium glow-brand rounded-3xl p-6 mt-5">
-        <div className="flex items-center gap-2 mb-3">
+      <div className="card-premium glow-brand rounded-3xl p-5 sm:p-6 mt-5">
+        <div className="flex items-center gap-2 mb-4">
           <span className="text-2xl">🧠</span>
           <h3 className="font-display text-xl tracking-wide">
             ESPECIALISTA <span className="text-brand">CNBOX</span>
           </h3>
           <span className="ml-auto text-[10px] uppercase tracking-widest text-brand bg-brand/15 border border-brand/30 rounded-full px-2 py-0.5">
-            Ativo
+            Liberado
           </span>
         </div>
 
-        {analysis ? (
-          <div className="rounded-2xl bg-ink/50 border border-white/10 p-4 text-sm text-white/85 whitespace-pre-line leading-relaxed">
-            {analysis}
+        {/* Janela do chat */}
+        <div className="rounded-2xl bg-ink/50 border border-white/10 p-3 max-h-[22rem] overflow-y-auto space-y-3">
+          {chat.length === 0 && !sending && (
+            <div className="text-center py-4">
+              <p className="text-3xl mb-2">⚽🤖</p>
+              <p className="text-sm text-white/70">
+                Converse com o Especialista sobre este jogo. Pergunte placar, escalação,
+                tendências — ou peça a análise completa.
+              </p>
+            </div>
+          )}
+
+          {chat.map((m, i) => (
+            <div
+              key={i}
+              className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
+            >
+              <div
+                className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm whitespace-pre-line leading-relaxed ${
+                  m.role === "user"
+                    ? "bg-brand/20 border border-brand/30 text-white"
+                    : "bg-white/5 border border-white/10 text-white/85"
+                }`}
+              >
+                {m.content}
+              </div>
+            </div>
+          ))}
+
+          {sending && (
+            <div className="flex justify-start">
+              <div className="bg-white/5 border border-white/10 rounded-2xl px-4 py-3 flex gap-1">
+                <span className="h-2 w-2 rounded-full bg-brand/70 animate-bounce [animation-delay:-0.3s]" />
+                <span className="h-2 w-2 rounded-full bg-brand/70 animate-bounce [animation-delay:-0.15s]" />
+                <span className="h-2 w-2 rounded-full bg-brand/70 animate-bounce" />
+              </div>
+            </div>
+          )}
+          <div ref={chatEnd} />
+        </div>
+
+        {/* Sugestões rápidas (só no início) */}
+        {chat.length === 0 && (
+          <div className="flex flex-wrap gap-2 mt-3">
+            {SUGGESTIONS.map((s) => (
+              <button
+                key={s}
+                onClick={() => sendChat(s)}
+                disabled={sending}
+                className="text-xs rounded-full glass px-3 py-1.5 text-white/70 hover:text-brand disabled:opacity-50"
+              >
+                {s}
+              </button>
+            ))}
           </div>
-        ) : (
-          <button
-            onClick={viewAnalysis}
-            disabled={loadingAnalysis}
-            className="btn-primary w-full py-3.5 rounded-2xl font-bold disabled:opacity-50"
-          >
-            {loadingAnalysis ? "Analisando o jogo..." : "Ver a análise do Especialista →"}
-          </button>
         )}
-        {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
-        <p className="mt-3 text-[11px] text-white/35">
+
+        {/* Campo de mensagem */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            sendChat(input);
+          }}
+          className="mt-3 flex items-center gap-2"
+        >
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Pergunte ao Especialista..."
+            className="flex-1 rounded-xl bg-ink/60 border border-white/10 px-4 py-3 text-white placeholder:text-white/30 outline-none focus:border-brand/60"
+          />
+          <button
+            type="submit"
+            disabled={sending || !input.trim()}
+            className="btn-primary px-5 py-3 rounded-xl font-bold disabled:opacity-50 shrink-0"
+          >
+            Enviar
+          </button>
+        </form>
+
+        {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
+        <p className="mt-2 text-[11px] text-white/35">
           Análise de opinião, para entretenimento. Não garante acerto.
         </p>
       </div>

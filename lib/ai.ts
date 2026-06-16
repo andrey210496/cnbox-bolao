@@ -70,3 +70,66 @@ export async function generateGameAnalysis(params: {
 
   return { content: text || "Não foi possível gerar a análise agora.", model: MODEL };
 }
+
+export type ChatTurn = { role: "user" | "assistant"; content: string };
+
+const CHAT_SYSTEM = (ctx: string) =>
+  `Você é o "Especialista CNBOX", um analista de futebol que conversa com o apostador para ajudá-lo a fechar o palpite de placar de UM jogo específico.
+
+Jogo em questão:
+${ctx}
+
+Regras:
+- Responda em português do Brasil, tom de comentarista esportivo: confiante, direto e simpático.
+- Seja CONCISO: respostas curtas (no máximo ~120 palavras), em conversa. Nada de textão.
+- Foque NESTE jogo e em palpites de placar. Se perguntarem algo fora de futebol/aposta, redirecione gentilmente.
+- Pode sugerir placares, analisar forças/fraquezas, tendências e dar uma recomendação cravada quando pedirem.
+- Você NÃO tem dados ao vivo (escalações/lesões de hoje) salvo se forem informados; não invente fatos específicos.
+- É opinião para entretenimento e não garante acerto. Não precisa repetir isso em toda resposta, só quando fizer sentido.`;
+
+/** Conversa do chat do Especialista sobre um jogo. Retorna a resposta do agente. */
+export async function chatWithSpecialist(params: {
+  homeTeam: string;
+  awayTeam: string;
+  competition: string;
+  stage?: string | null;
+  kickoffAt: Date;
+  notes?: string | null;
+  messages: ChatTurn[];
+}): Promise<string> {
+  const c = getClient();
+  const when = new Date(params.kickoffAt).toLocaleString("pt-BR", {
+    dateStyle: "full",
+    timeStyle: "short",
+    timeZone: "America/Sao_Paulo",
+  });
+  const ctx = [
+    `${params.homeTeam} x ${params.awayTeam}`,
+    `${params.competition}${params.stage ? " — " + params.stage : ""}`,
+    `Data/hora: ${when}`,
+    params.notes ? `Contexto: ${params.notes}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  // mantém só os últimos turnos para não estourar contexto/custo
+  const history = params.messages.slice(-12).map((m) => ({
+    role: m.role,
+    content: m.content.slice(0, 2000),
+  }));
+
+  const resp = await c.messages.create({
+    model: MODEL,
+    max_tokens: 700,
+    system: CHAT_SYSTEM(ctx),
+    messages: history,
+  });
+
+  const text = resp.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("\n")
+    .trim();
+
+  return text || "Não consegui responder agora. Tente de novo.";
+}

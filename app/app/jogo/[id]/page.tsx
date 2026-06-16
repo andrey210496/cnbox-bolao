@@ -50,6 +50,26 @@ export default async function JogoPage({
           </p>
         </div>
 
+        {open && (
+          <a
+            href="#especialista"
+            className="group mb-5 flex items-center gap-3 rounded-2xl border border-brand/30 bg-gradient-to-r from-brand/15 to-brand/5 px-4 py-3.5 hover:border-brand/60 hover:from-brand/25 transition"
+          >
+            <span className="text-2xl shrink-0">🤖</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-white">
+                Mais precisão no palpite com o Especialista IA
+              </p>
+              <p className="text-[12px] text-white/55">
+                Converse com o agente, tire dúvidas e veja a análise antes de apostar.
+              </p>
+            </div>
+            <span className="shrink-0 text-sm font-bold text-brand group-hover:underline whitespace-nowrap">
+              Abrir chat →
+            </span>
+          </a>
+        )}
+
         {open ? (
           <BetForm
             gameId={game.id}
