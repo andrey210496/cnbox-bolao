@@ -6,6 +6,7 @@ import Logo from "@/components/Logo";
 
 const LINKS = [
   { href: "/admin", label: "Visão geral", icon: "📊", exact: true },
+  { href: "/admin/palpites", label: "Palpites", icon: "🎯", exact: false },
   { href: "/admin/financeiro", label: "Financeiro", icon: "💰", exact: false },
 ];
 
