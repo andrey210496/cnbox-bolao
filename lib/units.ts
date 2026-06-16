@@ -36,6 +36,29 @@ export type UnitsOverview = {
 
 const n = (v: number | null | undefined) => v ?? 0;
 
+export type RankRow = { id: string; name: string; bets: number };
+
+/**
+ * Ranking público para os parceiros (sem valores em R$): apenas posição,
+ * nome da unidade e nº de palpites pagos. Motiva a competição entre unidades.
+ */
+export async function getUnitsRanking(): Promise<RankRow[]> {
+  const [units, counts] = await Promise.all([
+    prisma.unit.findMany({ where: { active: true }, select: { id: true, name: true } }),
+    prisma.bet.groupBy({
+      by: ["unitId"],
+      where: { status: "CONFIRMED" },
+      _count: { _all: true },
+    }),
+  ]);
+  const map = new Map<string | null, number>();
+  for (const c of counts) map.set(c.unitId, c._count._all);
+
+  return units
+    .map((u) => ({ id: u.id, name: u.name, bets: map.get(u.id) ?? 0 }))
+    .sort((a, b) => b.bets - a.bets || a.name.localeCompare(b.name));
+}
+
 export async function getUnitsOverview(): Promise<UnitsOverview> {
   const [units, usersByUnit, betsByUnitStatus, lastBetByUnit] = await Promise.all([
     prisma.unit.findMany({ orderBy: { name: "asc" } }),
