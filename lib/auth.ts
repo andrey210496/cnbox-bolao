@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 
 const SESSION_COOKIE = "cnbox_session";
 const ADMIN_COOKIE = "cnbox_admin";
+const HOLDER_COOKIE = "cnbox_holder";
 const DAY = 60 * 60 * 24;
 
 function secret(): Uint8Array {
@@ -95,4 +96,38 @@ export function verifyAdminCredentials(user: string, pw: string): boolean {
   const U = process.env.ADMIN_USER || "";
   const P = process.env.ADMIN_PASSWORD || "";
   return Boolean(U && P) && user === U && pw === P;
+}
+
+// ---------- Sessão do holder (responsável de unidade) ----------
+export async function createHolderSession(unitId: string): Promise<void> {
+  const token = await new SignJWT({ uid: unitId, role: "holder" })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("7d")
+    .sign(secret());
+  const store = await cookies();
+  store.set(HOLDER_COOKIE, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 7 * DAY,
+  });
+}
+
+export async function getHolderUnitId(): Promise<string | null> {
+  try {
+    const store = await cookies();
+    const token = store.get(HOLDER_COOKIE)?.value;
+    if (!token) return null;
+    const { payload } = await jwtVerify(token, secret());
+    return payload.role === "holder" ? (payload.uid as string) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function destroyHolderSession(): Promise<void> {
+  const store = await cookies();
+  store.set(HOLDER_COOKIE, "", { path: "/", maxAge: 0 });
 }

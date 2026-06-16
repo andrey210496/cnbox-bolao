@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { detectPixKey, isValidPhone, onlyDigits } from "@/lib/validation";
+import { createHolderSession, hashPassword } from "@/lib/auth";
+import {
+  detectPixKey,
+  isStrongPassword,
+  isValidPhone,
+  onlyDigits,
+} from "@/lib/validation";
 import { rateLimit, clientIp, maybeSweep } from "@/lib/ratelimit";
 
 function slugify(s: string): string {
@@ -31,12 +37,25 @@ export async function POST(req: Request) {
     const holderName = String(b?.holderName ?? "").trim();
     const holderPhone = onlyDigits(String(b?.holderPhone ?? ""));
     const pixRaw = String(b?.pixKey ?? "").trim();
+    const password = String(b?.password ?? "");
 
     if (name.length < 2) return bad("Informe o nome da unidade.");
     if (holderName.length < 3) return bad("Informe o nome do responsável.");
     if (!isValidPhone(holderPhone)) return bad("WhatsApp inválido (DDD + número).");
     const pix = detectPixKey(pixRaw);
     if (!pix) return bad("Chave PIX inválida (CPF, e-mail, telefone ou aleatória).");
+    if (!isStrongPassword(password))
+      return bad("A senha deve ter ao menos 6 caracteres.");
+
+    // WhatsApp é o login do holder — não pode repetir entre responsáveis.
+    const phoneTaken = await prisma.unit.findFirst({
+      where: { holderPhone, passwordHash: { not: null } },
+      select: { id: true },
+    });
+    if (phoneTaken)
+      return bad("Este WhatsApp já tem uma unidade cadastrada. Faça login.", 409);
+
+    const passwordHash = await hashPassword(password);
 
     // Já existe unidade com esse nome? Reaproveita o registro (atualiza dados do holder).
     const existing = await prisma.unit.findFirst({
@@ -59,10 +78,12 @@ export async function POST(req: Request) {
           holderPhone,
           pixKey: pix.key,
           pixKeyType: pix.type,
+          passwordHash,
           active: true,
         },
-        select: { slug: true },
+        select: { id: true, slug: true },
       });
+      await createHolderSession(updated.id);
       return ok(updated.slug, req);
     }
 
@@ -80,9 +101,10 @@ export async function POST(req: Request) {
         holderPhone,
         pixKey: pix.key,
         pixKeyType: pix.type,
+        passwordHash,
         active: true,
       },
-      select: { slug: true },
+      select: { id: true, slug: true },
     });
 
     await prisma.auditLog
@@ -91,6 +113,7 @@ export async function POST(req: Request) {
       })
       .catch(() => {});
 
+    await createHolderSession(unit.id);
     return ok(unit.slug, req);
   } catch (err) {
     console.error("[unit register] erro:", err);

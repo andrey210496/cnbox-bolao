@@ -16,10 +16,11 @@ model Unit {
   active    Boolean  @default(true)
 
   // Dados do responsável (holder) — preenchidos no auto-cadastro /parceiro
-  holderName  String? // responsável pela unidade
-  holderPhone String? // WhatsApp do responsável
-  pixKey      String? // chave PIX para receber a comissão
-  pixKeyType  String? // CPF | EMAIL | PHONE | EVP
+  holderName   String? // responsável pela unidade
+  holderPhone  String? // WhatsApp do responsável (login)
+  pixKey       String? // chave PIX para receber a comissão
+  pixKeyType   String? // CPF | EMAIL | PHONE | EVP
+  passwordHash String? // senha do holder para acessar o painel
 
   createdAt DateTime @default(now())
 

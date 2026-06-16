@@ -67,6 +67,9 @@ export default async function AdminPage() {
       bets: a?._count._all ?? 0,
       commission: a?._sum.unitCommission ?? 0,
       arrecadado: a?._sum.amount ?? 0,
+      holderName: u.holderName,
+      holderPhone: u.holderPhone,
+      pixKey: u.pixKey,
     };
   });
 

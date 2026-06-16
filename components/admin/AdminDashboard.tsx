@@ -30,6 +30,9 @@ type Unit = {
   bets: number;
   commission: number;
   arrecadado: number;
+  holderName: string | null;
+  holderPhone: string | null;
+  pixKey: string | null;
 };
 type Eco = Record<string, number>;
 
@@ -283,6 +286,15 @@ function Units({ units, unitPercent, onChange }: { units: Unit[]; unitPercent: n
             <div className="flex-1 min-w-[160px]">
               <p className="font-medium">{u.name} {!u.active && <span className="text-xs text-white/30">(inativa)</span>}</p>
               <p className="text-xs text-white/40">{u.bets} palpites · comissão {formatBRL(u.commission)}</p>
+              {u.holderName ? (
+                <p className="text-xs text-white/40 mt-0.5">
+                  Resp.: {u.holderName}
+                  {u.holderPhone ? ` · ${u.holderPhone}` : ""}
+                  {u.pixKey ? ` · PIX: ${u.pixKey}` : ""}
+                </p>
+              ) : (
+                <p className="text-xs text-amber-300/70 mt-0.5">Sem responsável cadastrado</p>
+              )}
             </div>
             <button
               onClick={() => navigator.clipboard.writeText(`${origin}/u/${u.slug}`)}

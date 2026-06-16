@@ -5,10 +5,14 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatCPF, formatPhone } from "@/lib/validation";
 
+type UnitOption = { id: string; name: string };
+
 export default function RegisterForm({
-  presetUnitName,
+  units,
+  presetUnitId,
 }: {
-  presetUnitName?: string;
+  units: UnitOption[];
+  presetUnitId?: string;
 }) {
   const router = useRouter();
   const [form, setForm] = useState({
@@ -16,7 +20,7 @@ export default function RegisterForm({
     phone: "",
     cpf: "",
     pixKey: "",
-    unitName: presetUnitName ?? "",
+    unitId: presetUnitId ?? "",
     password: "",
   });
   const [consent, setConsent] = useState(false);
@@ -107,13 +111,31 @@ export default function RegisterForm({
         <label className="block text-sm text-white/60 mb-1.5">
           Unidade onde você treina
         </label>
-        <input
-          className={input}
-          value={form.unitName}
-          onChange={(e) => set("unitName", e.target.value)}
-          placeholder="Ex: CNBOX Centro"
-          autoComplete="off"
-        />
+        {units.length > 0 ? (
+          <select
+            className={`${input} appearance-none`}
+            value={form.unitId}
+            onChange={(e) => set("unitId", e.target.value)}
+          >
+            <option value="" className="bg-ink">
+              Selecione sua unidade
+            </option>
+            {units.map((u) => (
+              <option key={u.id} value={u.id} className="bg-ink">
+                {u.name}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <p className="text-sm text-white/45 bg-ink/60 border border-white/10 rounded-xl px-4 py-3">
+            Nenhuma unidade cadastrada ainda. Peça para o responsável da sua unidade
+            se cadastrar em{" "}
+            <Link href="/parceiro" className="text-brand hover:text-brand-light">
+              /parceiro
+            </Link>
+            .
+          </p>
+        )}
       </div>
 
       <div>

@@ -10,6 +10,7 @@ export default function UnitRegisterForm() {
     holderName: "",
     holderPhone: "",
     pixKey: "",
+    password: "",
   });
   const [consent, setConsent] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -102,8 +103,11 @@ export default function UnitRegisterForm() {
         <p className="text-xs text-white/40">
           A comissão é paga na chave PIX que você cadastrou, após o resultado de cada jogo.
         </p>
-        <Link href="/" className="inline-block text-sm text-brand hover:text-brand-light">
-          ← Voltar ao início
+        <Link
+          href="/parceiro/painel"
+          className="block w-full btn-primary py-3.5 rounded-2xl font-display tracking-wide"
+        >
+          IR PARA MEU PAINEL →
         </Link>
       </div>
     );
@@ -157,6 +161,21 @@ export default function UnitRegisterForm() {
         />
       </div>
 
+      <div>
+        <label className="block text-sm text-white/60 mb-1.5">
+          Crie uma senha{" "}
+          <span className="text-white/30">(acesso ao seu painel)</span>
+        </label>
+        <input
+          className={input}
+          type="password"
+          value={form.password}
+          onChange={(e) => set("password", e.target.value)}
+          placeholder="Mínimo 6 caracteres"
+          autoComplete="new-password"
+        />
+      </div>
+
       {error && (
         <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
           {error}
@@ -186,6 +205,13 @@ export default function UnitRegisterForm() {
       >
         {loading ? "CADASTRANDO..." : "GERAR MEU LINK →"}
       </button>
+
+      <p className="text-center text-sm text-white/50">
+        Já tem unidade cadastrada?{" "}
+        <Link href="/parceiro/entrar" className="text-brand hover:text-brand-light">
+          Entrar no painel
+        </Link>
+      </p>
     </form>
   );
 }
