@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/auth";
 import { getUnitsOverview } from "@/lib/units";
 import { formatBRL } from "@/lib/format";
+import CleanupInactiveUnits from "@/components/admin/CleanupInactiveUnits";
 
 export const dynamic = "force-dynamic";
 
@@ -24,13 +25,16 @@ export default async function UnidadesPage() {
   return (
     <div className="w-full">
       <div className="mx-auto max-w-[1300px] px-4 sm:px-8 py-8 space-y-8">
-        <div>
-          <h1 className="font-display text-3xl">
-            UNI<span className="text-brand">DADES</span>
-          </h1>
-          <p className="text-white/50 text-sm mt-1">
-            Desempenho e comissões por unidade. Ranking pela comissão acumulada.
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="font-display text-3xl">
+              UNI<span className="text-brand">DADES</span>
+            </h1>
+            <p className="text-white/50 text-sm mt-1">
+              Desempenho e comissões por unidade. Ranking pela comissão acumulada.
+            </p>
+          </div>
+          <CleanupInactiveUnits count={totals.units - totals.active} />
         </div>
 
         {/* Resumo */}
