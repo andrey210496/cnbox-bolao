@@ -11,25 +11,14 @@ export const dynamic = "force-dynamic";
 export default async function CadastroPage() {
   if (await getUserId()) redirect("/app");
 
-  let units: { id: string; name: string }[] = [];
-  try {
-    units = await prisma.unit.findMany({
-      where: { active: true },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    });
-  } catch {
-    units = [];
-  }
-
-  // Indicação por unidade (cookie definido em /u/[slug])
+  // Indicação por unidade (cookie definido em /u/[slug]) — pré-preenche o nome
   const slug = (await cookies()).get("cnbox_unit")?.value;
-  let presetUnitId: string | undefined;
+  let presetUnitName: string | undefined;
   if (slug) {
     const u = await prisma.unit
-      .findFirst({ where: { slug, active: true }, select: { id: true } })
+      .findFirst({ where: { slug, active: true }, select: { name: true } })
       .catch(() => null);
-    presetUnitId = u?.id;
+    presetUnitName = u?.name ?? undefined;
   }
 
   return (
@@ -47,7 +36,7 @@ export default async function CadastroPage() {
           </p>
         </div>
 
-        <RegisterForm units={units} presetUnitId={presetUnitId} />
+        <RegisterForm presetUnitName={presetUnitName} />
       </div>
     </main>
   );

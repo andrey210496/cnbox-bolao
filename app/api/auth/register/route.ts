@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     const cpf = onlyDigits(String(body?.cpf ?? ""));
     const pixRaw = String(body?.pixKey ?? "").trim();
     const password = String(body?.password ?? "");
-    const unitId = String(body?.unitId ?? "").trim();
+    const unitName = String(body?.unitName ?? "").trim();
 
     // Validações
     if (!isValidFullName(fullName))
@@ -38,14 +38,29 @@ export async function POST(req: Request) {
     if (!pix) return bad("Chave PIX inválida (CPF, e-mail, telefone ou aleatória).");
     if (!isStrongPassword(password))
       return bad("A senha deve ter ao menos 6 caracteres.");
-    if (!unitId) return bad("Selecione a unidade onde você treina.");
+    if (unitName.length < 2) return bad("Informe a unidade onde você treina.");
 
-    // Unidade existe e está ativa?
-    const unit = await prisma.unit.findFirst({
-      where: { id: unitId, active: true },
+    // Unidade digitada manualmente: acha (case-insensitive) ou cria
+    let unit = await prisma.unit.findFirst({
+      where: { name: { equals: unitName, mode: "insensitive" } },
       select: { id: true },
     });
-    if (!unit) return bad("Unidade inválida.");
+    if (!unit) {
+      let slug = unitName
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "")
+        .slice(0, 40) || "unidade";
+      const base = slug;
+      let i = 1;
+      while (await prisma.unit.findUnique({ where: { slug } })) slug = `${base}-${i++}`;
+      unit = await prisma.unit.create({
+        data: { name: unitName, slug },
+        select: { id: true },
+      });
+    }
 
     // CPF já cadastrado?
     const existing = await prisma.user.findUnique({ where: { cpf } });

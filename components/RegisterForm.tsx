@@ -5,14 +5,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatCPF, formatPhone } from "@/lib/validation";
 
-type Unit = { id: string; name: string };
-
 export default function RegisterForm({
-  units,
-  presetUnitId,
+  presetUnitName,
 }: {
-  units: Unit[];
-  presetUnitId?: string;
+  presetUnitName?: string;
 }) {
   const router = useRouter();
   const [form, setForm] = useState({
@@ -20,7 +16,7 @@ export default function RegisterForm({
     phone: "",
     cpf: "",
     pixKey: "",
-    unitId: presetUnitId ?? "",
+    unitName: presetUnitName ?? "",
     password: "",
   });
   const [consent, setConsent] = useState(false);
@@ -111,18 +107,13 @@ export default function RegisterForm({
         <label className="block text-sm text-white/60 mb-1.5">
           Unidade onde você treina
         </label>
-        <select
+        <input
           className={input}
-          value={form.unitId}
-          onChange={(e) => set("unitId", e.target.value)}
-        >
-          <option value="">Selecione sua unidade</option>
-          {units.map((u) => (
-            <option key={u.id} value={u.id} className="bg-ink">
-              {u.name}
-            </option>
-          ))}
-        </select>
+          value={form.unitName}
+          onChange={(e) => set("unitName", e.target.value)}
+          placeholder="Ex: CNBOX Centro"
+          autoComplete="off"
+        />
       </div>
 
       <div>

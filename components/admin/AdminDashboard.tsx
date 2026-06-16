@@ -125,11 +125,38 @@ function Games({ games, teams, onChange }: { games: Game[]; teams: Team[]; onCha
     } else setMsg(d?.error ?? "Erro.");
   }
 
+  const [importing, setImporting] = useState(false);
+  async function importGames() {
+    if (!confirm("Importar os jogos da Copa 2026 automaticamente? (não duplica os já cadastrados)")) return;
+    setImporting(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/admin/games/import", { method: "POST" });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d?.error ?? "Erro ao importar.");
+      setMsg(`✅ Importados ${d.created} jogos (${d.duplicates} já existiam). Revise as datas/horários.`);
+      onChange();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Erro.");
+    } finally {
+      setImporting(false);
+    }
+  }
+
   const sel = "rounded-xl bg-ink/60 border border-white/10 px-3 py-2.5 text-white outline-none focus:border-brand/60";
 
   return (
     <section className="card-premium rounded-3xl p-6">
-      <h2 className="font-display text-2xl mb-4">JOGOS <span className="text-brand">DA COPA</span></h2>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <h2 className="font-display text-2xl">JOGOS <span className="text-brand">DA COPA</span></h2>
+        <button
+          onClick={importGames}
+          disabled={importing}
+          className="rounded-xl glass px-4 py-2.5 text-sm font-semibold text-brand hover:text-brand-light disabled:opacity-50"
+        >
+          {importing ? "Importando..." : "⬇ Importar jogos da Copa"}
+        </button>
+      </div>
 
       <div className="grid sm:grid-cols-5 gap-2 mb-5">
         <select className={sel} value={home} onChange={(e) => setHome(e.target.value)}>
