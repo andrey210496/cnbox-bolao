@@ -10,26 +10,59 @@ function freeCpfs(): string[] {
     .filter(Boolean);
 }
 
-/** O usuário tem acesso ao Especialista para este jogo? (pedido confirmado ou cortesia) */
-export async function hasSpecialistAccess(
+/** CPF de cortesia (dono/equipe) — dicas ilimitadas, sem consumir. */
+async function isFreeUser(userId: string): Promise<boolean> {
+  const free = freeCpfs();
+  if (!free.length) return false;
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { cpf: true },
+  });
+  return Boolean(user && free.includes(user.cpf));
+}
+
+/** O usuário tem uma dica DISPONÍVEL (paga e ainda não usada) para este jogo? */
+export async function hasUnusedDica(
   userId: string,
   gameId: string
 ): Promise<boolean> {
-  // Cortesia: CPFs liberados acessam o chat de qualquer jogo, sem pagar.
-  const free = freeCpfs();
-  if (free.length) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { cpf: true },
-    });
-    if (user && free.includes(user.cpf)) return true;
-  }
-
+  if (await isFreeUser(userId)) return true;
   const order = await prisma.specialistOrder.findFirst({
-    where: { userId, gameId, status: "CONFIRMED" },
+    where: { userId, gameId, status: "CONFIRMED", usedAt: null },
     select: { id: true },
   });
   return Boolean(order);
+}
+
+/**
+ * Consome UMA dica e retorna o conteúdo. Uso único: marca o pedido como usado.
+ * CPF de cortesia não consome (uso ilimitado). Lança erro se não houver dica disponível.
+ */
+export async function consumeDica(
+  userId: string,
+  gameId: string
+): Promise<string> {
+  if (await isFreeUser(userId)) {
+    return getOrCreateAnalysis(gameId);
+  }
+
+  // pega a dica paga mais antiga ainda não usada
+  const order = await prisma.specialistOrder.findFirst({
+    where: { userId, gameId, status: "CONFIRMED", usedAt: null },
+    orderBy: { createdAt: "asc" },
+    select: { id: true },
+  });
+  if (!order) {
+    throw new Error("Você não tem uma dica disponível para este jogo.");
+  }
+
+  const content = await getOrCreateAnalysis(gameId);
+  // marca como usada só depois de gerar com sucesso (não cobra à toa)
+  await prisma.specialistOrder.update({
+    where: { id: order.id },
+    data: { usedAt: new Date() },
+  });
+  return content;
 }
 
 /** Retorna a análise do jogo (gera e cacheia na 1ª vez). */

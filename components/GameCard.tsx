@@ -62,11 +62,11 @@ export default function GameCard({
         >
           <span className="text-lg leading-none mt-0.5">🤖</span>
           <p className="text-[11px] leading-snug text-white/75">
-            <span className="font-bold text-brand">Mais precisão no palpite:</span> conte com
-            o <span className="font-semibold text-white">Especialista IA</span> de futebol antes
-            de apostar.{" "}
+            <span className="font-bold text-brand">Mais precisão no palpite:</span> peça uma{" "}
+            <span className="font-semibold text-white">dica do Especialista IA</span> antes de
+            apostar.{" "}
             <span className="text-brand font-semibold whitespace-nowrap group-hover:underline">
-              Saiba mais →
+              Ver dica →
             </span>
           </p>
         </Link>

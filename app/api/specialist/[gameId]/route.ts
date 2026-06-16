@@ -8,10 +8,10 @@ import {
   getPayment,
   isPaidStatus,
 } from "@/lib/asaas";
-import { hasSpecialistAccess } from "@/lib/specialist";
+import { hasUnusedDica } from "@/lib/specialist";
 import { rateLimit, clientIp, maybeSweep } from "@/lib/ratelimit";
 
-// GET: status do acesso + pedido pendente (para a tela de pagamento)
+// GET: tem dica disponível? + pedido pendente (para a tela de pagamento)
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ gameId: string }> }
@@ -20,12 +20,13 @@ export async function GET(
   if (!uid) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   const { gameId } = await params;
 
-  if (await hasSpecialistAccess(uid, gameId)) {
-    return NextResponse.json({ access: true, order: null });
+  if (await hasUnusedDica(uid, gameId)) {
+    return NextResponse.json({ hasDica: true, order: null });
   }
 
+  // pedido pago aguardando confirmação ou pendente de pagamento
   const order = await prisma.specialistOrder.findFirst({
-    where: { userId: uid, gameId, status: { in: ["PENDING", "CONFIRMED"] } },
+    where: { userId: uid, gameId, status: { in: ["PENDING", "CONFIRMED"] }, usedAt: null },
     orderBy: { createdAt: "desc" },
   });
 
@@ -38,21 +39,22 @@ export async function GET(
           where: { id: order.id },
           data: { status: "CONFIRMED", confirmedAt: new Date() },
         });
-        return NextResponse.json({ access: true, order: null });
+        return NextResponse.json({ hasDica: true, order: null });
       }
     } catch {}
   }
 
   return NextResponse.json({
-    access: false,
-    order: order
-      ? {
-          id: order.id,
-          status: order.status,
-          amount: order.amount,
-          checkoutUrl: order.checkoutUrl,
-        }
-      : null,
+    hasDica: false,
+    order:
+      order && order.status === "PENDING"
+        ? {
+            id: order.id,
+            status: order.status,
+            amount: order.amount,
+            checkoutUrl: order.checkoutUrl,
+          }
+        : null,
   });
 }
 
@@ -70,8 +72,11 @@ export async function POST(
   const { gameId } = await params;
 
   try {
-    if (await hasSpecialistAccess(uid, gameId)) {
-      return NextResponse.json({ error: "Você já tem o Especialista deste jogo." }, { status: 400 });
+    if (await hasUnusedDica(uid, gameId)) {
+      return NextResponse.json(
+        { error: "Você já tem uma dica disponível para este jogo. Use-a primeiro." },
+        { status: 400 }
+      );
     }
 
     const game = await prisma.game.findUnique({ where: { id: gameId } });

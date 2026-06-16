@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth";
-import { hasSpecialistAccess, getOrCreateAnalysis } from "@/lib/specialist";
+import { consumeDica } from "@/lib/specialist";
 
-export async function GET(
+// POST: consome UMA dica (uso único) e retorna o conteúdo.
+export async function POST(
   _req: Request,
   { params }: { params: Promise<{ gameId: string }> }
 ) {
@@ -10,19 +11,13 @@ export async function GET(
   if (!uid) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   const { gameId } = await params;
 
-  if (!(await hasSpecialistAccess(uid, gameId))) {
-    return NextResponse.json(
-      { error: "Você precisa contratar o Especialista para este jogo." },
-      { status: 403 }
-    );
-  }
-
   try {
-    const content = await getOrCreateAnalysis(gameId);
+    const content = await consumeDica(uid, gameId);
     return NextResponse.json({ content });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Erro ao gerar a análise.";
-    console.error("[specialist analysis] erro:", message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    const message = err instanceof Error ? err.message : "Erro ao gerar a dica.";
+    console.error("[specialist dica] erro:", message);
+    const status = message.includes("disponível") ? 403 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }

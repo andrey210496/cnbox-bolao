@@ -10,7 +10,7 @@ export const DEFAULTS = {
   house_percent: 20, // % da casa (lucro líquido garantido)
   unit_percent: 10, // % pago à unidade que trouxe o palpite (do valor do palpite)
   payout_deadline_hours: 24, // prazo de apuração/pagamento informado ao usuário
-  specialist_price: 9.9, // R$ do Especialista IA (100% da casa, fora do prêmio)
+  specialist_price: 3, // R$ por dica do Especialista IA (uso único, 100% da casa, fora do prêmio)
 } as const;
 
 export type EconomicsKey = keyof typeof DEFAULTS;

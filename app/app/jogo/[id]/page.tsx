@@ -61,11 +61,11 @@ export default async function JogoPage({
                 Mais precisão no palpite com o Especialista IA
               </p>
               <p className="text-[12px] text-white/55">
-                Converse com o agente, tire dúvidas e veja a análise antes de apostar.
+                Peça uma dica da IA: análise do jogo e os placares mais prováveis.
               </p>
             </div>
             <span className="shrink-0 text-sm font-bold text-brand group-hover:underline whitespace-nowrap">
-              Abrir chat →
+              Ver dica →
             </span>
           </a>
         )}

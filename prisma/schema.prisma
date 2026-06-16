@@ -133,7 +133,7 @@ model SpecialistOrder {
   userId String
   gameId String
 
-  amount Float @default(9.9)
+  amount Float @default(3)
 
   status          String    @default("PENDING") // PENDING | CONFIRMED | EXPIRED | FAILED | REFUNDED
   asaasCustomerId String?
@@ -145,6 +145,7 @@ model SpecialistOrder {
 
   createdAt   DateTime  @default(now())
   confirmedAt DateTime?
+  usedAt      DateTime? // quando a dica foi consumida (uso único)
 
   @@index([userId, gameId])
   @@index([status])
