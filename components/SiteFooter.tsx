@@ -1,3 +1,4 @@
+import Link from "next/link";
 import Logo from "./Logo";
 
 export default function SiteFooter() {
@@ -12,7 +13,13 @@ export default function SiteFooter() {
           </p>
         </div>
         <div className="text-xs text-white/30 text-center sm:text-right">
-          <p>© {new Date().getFullYear()} CNBOX. Todos os direitos reservados.</p>
+          <Link
+            href="/parceiro"
+            className="text-brand hover:text-brand-light font-medium"
+          >
+            É de uma unidade? Cadastre-se e ganhe comissão →
+          </Link>
+          <p className="mt-3">© {new Date().getFullYear()} CNBOX. Todos os direitos reservados.</p>
           <p className="mt-1 flex items-center gap-1.5 justify-center sm:justify-end">
             <span className="text-brand">●</span> Pagamento 100% seguro · PIX
           </p>

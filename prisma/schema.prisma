@@ -14,6 +14,13 @@ model Unit {
   name      String
   slug      String   @unique // código do link rastreável: /u/<slug>
   active    Boolean  @default(true)
+
+  // Dados do responsável (holder) — preenchidos no auto-cadastro /parceiro
+  holderName  String? // responsável pela unidade
+  holderPhone String? // WhatsApp do responsável
+  pixKey      String? // chave PIX para receber a comissão
+  pixKeyType  String? // CPF | EMAIL | PHONE | EVP
+
   createdAt DateTime @default(now())
 
   users User[]
