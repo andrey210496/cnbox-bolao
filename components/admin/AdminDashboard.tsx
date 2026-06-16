@@ -137,7 +137,7 @@ function Games({ games, teams, onChange }: { games: Game[]; teams: Team[]; onCha
       const res = await fetch("/api/admin/games/import", { method: "POST" });
       const d = await res.json();
       if (!res.ok) throw new Error(d?.error ?? "Erro ao importar.");
-      setMsg(`✅ Importados ${d.created} jogos (${d.duplicates} já existiam). Revise as datas/horários.`);
+      setMsg(`✅ ${d.created} criados · ${d.updated ?? 0} horários corrigidos · ${d.duplicates} sem mudança${d.skipped ? ` · ${d.skipped} ignorados (a definir)` : ""}.`);
       onChange();
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Erro.");

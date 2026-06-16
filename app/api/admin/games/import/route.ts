@@ -16,25 +16,31 @@ export async function POST() {
     }
 
     let created = 0;
+    let updated = 0;
     let duplicates = 0;
     for (const m of matches) {
-      const dayStart = new Date(m.kickoffAt);
-      dayStart.setHours(0, 0, 0, 0);
-      const dayEnd = new Date(m.kickoffAt);
-      dayEnd.setHours(23, 59, 59, 999);
-
+      // Mesma partida = mesmo confronto (cada par joga uma vez na fase atual).
       const exists = await prisma.game.findFirst({
-        where: {
-          homeCode: m.homeCode,
-          awayCode: m.awayCode,
-          kickoffAt: { gte: dayStart, lte: dayEnd },
-        },
-        select: { id: true },
+        where: { homeCode: m.homeCode, awayCode: m.awayCode },
+        select: { id: true, status: true, kickoffAt: true },
       });
+
       if (exists) {
-        duplicates++;
+        // Só corrige jogos ainda agendados (não mexe nos já encerrados/cancelados).
+        if (exists.status === "SCHEDULED") {
+          const changed = exists.kickoffAt.getTime() !== m.kickoffAt.getTime();
+          await prisma.game.update({
+            where: { id: exists.id },
+            data: { kickoffAt: m.kickoffAt, stage: m.stage },
+          });
+          if (changed) updated++;
+          else duplicates++;
+        } else {
+          duplicates++;
+        }
         continue;
       }
+
       await prisma.game.create({
         data: {
           homeTeam: m.homeTeam,
@@ -54,12 +60,12 @@ export async function POST() {
         data: {
           action: "games_import",
           actor: "admin",
-          detail: `criados ${created}, duplicados ${duplicates}, ignorados ${skipped}`,
+          detail: `criados ${created}, atualizados ${updated}, duplicados ${duplicates}, ignorados ${skipped}`,
         },
       })
       .catch(() => {});
 
-    return NextResponse.json({ ok: true, created, duplicates, skipped });
+    return NextResponse.json({ ok: true, created, updated, duplicates, skipped });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Erro ao importar.";
     console.error("[games import] erro:", message);

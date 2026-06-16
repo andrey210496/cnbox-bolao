@@ -63,6 +63,10 @@ const COUNTRIES: Entry[] = [
   { pt: "Grécia", code: "gr", aliases: ["greece", "gre"] },
   { pt: "Nova Caledônia", code: "nc", aliases: ["new caledonia"] },
   { pt: "Haiti", code: "ht", aliases: ["haiti", "hai"] },
+  { pt: "República Tcheca", code: "cz", aliases: ["czech republic", "czechia", "cze", "tchequia"] },
+  { pt: "Bósnia e Herzegovina", code: "ba", aliases: ["bosnia & herzegovina", "bosnia and herzegovina", "bosnia herzegovina", "bosnia", "bih"] },
+  { pt: "RD Congo", code: "cd", aliases: ["dr congo", "democratic republic of the congo", "congo dr", "rd congo", "cod"] },
+  { pt: "Iraque", code: "iq", aliases: ["iraq", "irq"] },
 ];
 
 export const TEAMS: Team[] = COUNTRIES.map((c) => ({ name: c.pt, code: c.code }));

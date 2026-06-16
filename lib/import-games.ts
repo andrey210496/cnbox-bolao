@@ -27,8 +27,19 @@ function buildKickoff(date: string, time: unknown): Date | null {
   const m = t.match(/(\d{1,2}):(\d{2})/);
   const hh = m ? m[1].padStart(2, "0") : "12";
   const mm = m ? m[2] : "00";
-  // Sem fuso confiável na fonte → assume horário de Brasília (-03:00). Admin revisa.
-  const d = new Date(`${date}T${hh}:${mm}:00-03:00`);
+
+  // A fonte traz o fuso do estádio embutido, ex: "13:00 UTC-6", "12:00 UTC-4".
+  // Lemos esse offset e montamos o instante correto; se faltar, assume UTC.
+  const off = t.match(/UTC\s*([+-])\s*(\d{1,2})(?::?(\d{2}))?/i);
+  let offset = "Z";
+  if (off) {
+    const sign = off[1];
+    const oh = off[2].padStart(2, "0");
+    const omin = (off[3] ?? "00").padStart(2, "0");
+    offset = `${sign}${oh}:${omin}`;
+  }
+
+  const d = new Date(`${date}T${hh}:${mm}:00${offset}`);
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
