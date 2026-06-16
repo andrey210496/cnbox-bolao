@@ -21,7 +21,7 @@ export default async function HolderPanelPage() {
   });
   if (!unit) redirect("/parceiro/entrar");
 
-  const [confirmed, pending, students] = await Promise.all([
+  const [confirmed, pending, students, winners] = await Promise.all([
     prisma.bet.aggregate({
       where: { unitId, status: "CONFIRMED" },
       _sum: { unitCommission: true, amount: true },
@@ -29,10 +29,11 @@ export default async function HolderPanelPage() {
     }),
     prisma.bet.count({ where: { unitId, status: "PENDING" } }),
     prisma.user.count({ where: { unitId } }),
+    // ganhadores da unidade (palpites premiados após apuração)
+    prisma.payout.count({ where: { bet: { unitId } } }).catch(() => 0),
   ]);
 
   const commission = confirmed._sum.unitCommission ?? 0;
-  const arrecadado = confirmed._sum.amount ?? 0;
   const palpites = confirmed._count._all;
 
   // Ranking de unidades (sem valores em R$) — motiva a competição
@@ -54,7 +55,7 @@ export default async function HolderPanelPage() {
     { label: "Comissão acumulada", value: formatBRL(commission), accent: true },
     { label: "Palpites confirmados", value: String(palpites) },
     { label: "Alunos cadastrados", value: String(students) },
-    { label: "Arrecadado pela unidade", value: formatBRL(arrecadado) },
+    { label: "Ganhadores da unidade", value: `🏆 ${winners}` },
   ];
 
   return (
