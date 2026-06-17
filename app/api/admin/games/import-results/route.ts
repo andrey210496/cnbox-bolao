@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isAdmin } from "@/lib/auth";
 import { fetchWorldCupMatches } from "@/lib/import-games";
+import { scoreGame } from "@/lib/scoring";
 
 // Importa os PLACARES finais da fonte (openfootball) e marca os jogos como FINISHED.
 // Não dispara pagamento — o admin ainda revisa e aprova a apuração.
@@ -25,16 +26,16 @@ export async function POST() {
     let notFound = 0;
 
     for (const m of withScore) {
-      // só atualiza jogos nossos que ainda NÃO foram apurados/pagos
+      // só atualiza jogos nossos que ainda NÃO foram encerrados
       const game = await prisma.game.findFirst({
         where: { homeCode: m.homeCode, awayCode: m.awayCode },
-        select: { id: true, status: true, payoutStatus: true },
+        select: { id: true, status: true },
       });
       if (!game) {
         notFound++;
         continue;
       }
-      if (game.status === "FINISHED" || game.payoutStatus !== "NONE") {
+      if (game.status === "FINISHED") {
         alreadyDone++;
         continue;
       }
@@ -47,6 +48,7 @@ export async function POST() {
           finishedAt: new Date(),
         },
       });
+      await scoreGame(game.id);
       updated++;
     }
 

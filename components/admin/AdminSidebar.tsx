@@ -6,9 +6,10 @@ import Logo from "@/components/Logo";
 
 const LINKS = [
   { href: "/admin", label: "Visão geral", icon: "📊", exact: true },
-  { href: "/admin/palpites", label: "Palpites", icon: "🎯", exact: false },
+  { href: "/admin/entradas", label: "Entradas", icon: "🎟️", exact: false },
   { href: "/admin/unidades", label: "Unidades", icon: "🏠", exact: false },
   { href: "/admin/financeiro", label: "Financeiro", icon: "💰", exact: false },
+  { href: "/admin/encerramento", label: "Encerramento", icon: "🏆", exact: false },
 ];
 
 export default function AdminSidebar() {

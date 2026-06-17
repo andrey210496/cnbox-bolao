@@ -13,9 +13,9 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   }
 
-  // Só palpites recentes ainda pendentes (limite por execução p/ não estourar rate limit)
+  // Entradas recentes ainda pendentes (limite por execução p/ não estourar rate limit)
   const since = new Date(Date.now() - 1000 * 60 * 60 * 24 * 3); // 3 dias
-  const pend = await prisma.bet.findMany({
+  const pend = await prisma.entry.findMany({
     where: {
       status: "PENDING",
       asaasPaymentId: { not: null },
@@ -30,13 +30,13 @@ export async function GET(req: Request) {
     try {
       const payment = await getPayment(b.asaasPaymentId!);
       if (isPaidStatus(payment.status)) {
-        await prisma.bet.update({
+        await prisma.entry.update({
           where: { id: b.id },
           data: { status: "CONFIRMED", confirmedAt: new Date(), ...paymentSnapshot(payment) },
         });
         confirmed++;
       } else if (["REFUNDED", "REFUND_REQUESTED"].includes(payment.status)) {
-        await prisma.bet.update({
+        await prisma.entry.update({
           where: { id: b.id },
           data: { status: "REFUNDED" },
         });

@@ -1,16 +1,24 @@
 import Link from "next/link";
 import Flag from "./Flag";
-import { formatBRL } from "@/lib/economics";
-import { formatGameDate, isOpen, type GameWithPool } from "@/lib/games";
+import { formatGameDate, isOpen, type GameLite } from "@/lib/games";
+
+export type PredictionInfo = {
+  homeScore: number;
+  awayScore: number;
+  points: number;
+  scored: boolean;
+};
 
 export default function GameCard({
   game,
   href,
   cta,
+  prediction,
 }: {
-  game: GameWithPool;
+  game: GameLite;
   href: string;
   cta: string;
+  prediction?: PredictionInfo | null;
 }) {
   const open = isOpen(game);
   const finished = game.status === "FINISHED";
@@ -34,6 +42,7 @@ export default function GameCard({
           <span className="font-display text-2xl sm:text-3xl text-brand-light tabular-nums">
             {score}
           </span>
+          {finished && <span className="text-[9px] uppercase tracking-wider text-white/40">resultado</span>}
         </div>
         <Team code={game.awayCode} name={game.awayTeam} />
       </div>
@@ -42,34 +51,17 @@ export default function GameCard({
         {formatGameDate(game.kickoffAt)}
       </p>
 
-      <div className="mt-4 grid grid-cols-2 gap-2">
-        <div className="rounded-xl bg-ink/50 border border-white/5 px-3 py-2 text-center">
-          <p className="font-display text-lg text-brand text-glow tabular-nums">
-            {formatBRL(game.pool)}
-          </p>
-          <p className="text-[10px] uppercase tracking-wider text-white/40">prêmio</p>
+      {/* Seu palpite */}
+      {prediction && (
+        <div className="mt-4 flex items-center justify-between rounded-xl bg-ink/50 border border-white/5 px-3 py-2">
+          <span className="text-xs text-white/50">Seu palpite</span>
+          <span className="font-display text-base text-white tabular-nums">
+            {prediction.homeScore}-{prediction.awayScore}
+            {prediction.scored && (
+              <span className="ml-2 text-brand">+{prediction.points} pts</span>
+            )}
+          </span>
         </div>
-        <div className="rounded-xl bg-ink/50 border border-white/5 px-3 py-2 text-center">
-          <p className="font-display text-lg text-white tabular-nums">{game.bets}</p>
-          <p className="text-[10px] uppercase tracking-wider text-white/40">palpites</p>
-        </div>
-      </div>
-
-      {open && (
-        <Link
-          href={`${href}#especialista`}
-          className="group mt-4 flex items-start gap-2.5 rounded-xl border border-brand/30 bg-gradient-to-r from-brand/15 to-brand/5 px-3 py-2.5 hover:border-brand/60 hover:from-brand/25 transition"
-        >
-          <span className="text-lg leading-none mt-0.5">🤖</span>
-          <p className="text-[11px] leading-snug text-white/75">
-            <span className="font-bold text-brand">Mais precisão no palpite:</span> peça uma{" "}
-            <span className="font-semibold text-white">dica do Especialista IA</span> antes de
-            apostar.{" "}
-            <span className="text-brand font-semibold whitespace-nowrap group-hover:underline">
-              Ver dica →
-            </span>
-          </p>
-        </Link>
       )}
 
       <Link
@@ -80,7 +72,7 @@ export default function GameCard({
             : "bg-white/10 text-white/40 pointer-events-none cursor-not-allowed"
         }`}
       >
-        {open ? cta : finished ? "Encerrado" : "Palpites fechados"}
+        {open ? (prediction ? "Editar palpite" : cta) : finished ? "Encerrado" : "Palpites fechados"}
       </Link>
     </div>
   );

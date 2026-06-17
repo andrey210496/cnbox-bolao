@@ -20,7 +20,8 @@ export async function POST() {
 
   await prisma.$transaction([
     prisma.user.updateMany({ where: { unitId: { in: ids } }, data: { unitId: null } }),
-    prisma.bet.updateMany({ where: { unitId: { in: ids } }, data: { unitId: null } }),
+    prisma.entry.updateMany({ where: { unitId: { in: ids } }, data: { unitId: null } }),
+    prisma.prediction.updateMany({ where: { unitId: { in: ids } }, data: { unitId: null } }),
     prisma.unit.deleteMany({ where: { id: { in: ids } } }),
   ]);
 

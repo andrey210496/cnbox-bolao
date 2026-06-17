@@ -9,97 +9,52 @@ export type UnitMetric = {
   holderName: string | null;
   holderPhone: string | null;
   pixKey: string | null;
-  students: number; // alunos cadastrados na unidade
-  betsConfirmed: number; // palpites pagos
-  betsPending: number; // palpites aguardando pagamento
-  betsTotal: number; // todos os palpites (qualquer status)
-  revenue: number; // arrecadado (palpites pagos)
-  prize: number; // contribuição de prêmio dos palpites pagos
-  commission: number; // comissão acumulada (a pagar ao responsável)
-  conversion: number; // % pagos / total
-  avgTicket: number; // ticket médio dos pagos
-  lastBetAt: string | null; // último palpite pago
+  entryFee: number;
+  students: number;
+  betsConfirmed: number; // entradas pagas
+  betsPending: number; // entradas aguardando pagamento
+  betsTotal: number;
+  revenue: number; // arrecadado (entradas pagas)
+  prize: number; // prêmio acumulado da unidade
+  commission: number; // comissão acumulada
+  conversion: number;
+  avgTicket: number;
+  lastBetAt: string | null;
 };
 
 export type UnitsOverview = {
   units: UnitMetric[];
-  totals: {
-    units: number;
-    active: number;
-    students: number;
-    revenue: number;
-    commission: number;
-    betsConfirmed: number;
-  };
+  totals: { units: number; active: number; students: number; revenue: number; commission: number; betsConfirmed: number };
   noUnit: { students: number; betsConfirmed: number; revenue: number; commission: number };
 };
 
 const n = (v: number | null | undefined) => v ?? 0;
 
-export type RankRow = { id: string; name: string; bets: number };
-
-/**
- * Ranking público para os parceiros (sem valores em R$): apenas posição,
- * nome da unidade e nº de palpites pagos. Motiva a competição entre unidades.
- */
-export async function getUnitsRanking(): Promise<RankRow[]> {
-  const [units, counts] = await Promise.all([
-    prisma.unit.findMany({ where: { active: true }, select: { id: true, name: true } }),
-    prisma.bet.groupBy({
-      by: ["unitId"],
-      where: { status: "CONFIRMED" },
-      _count: { _all: true },
-    }),
-  ]);
-  const map = new Map<string | null, number>();
-  for (const c of counts) map.set(c.unitId, c._count._all);
-
-  return units
-    .map((u) => ({ id: u.id, name: u.name, bets: map.get(u.id) ?? 0 }))
-    .sort((a, b) => b.bets - a.bets || a.name.localeCompare(b.name));
-}
-
 export async function getUnitsOverview(): Promise<UnitsOverview> {
-  const [units, usersByUnit, betsByUnitStatus, lastBetByUnit] = await Promise.all([
+  const [units, usersByUnit, entriesByUnitStatus, lastByUnit] = await Promise.all([
     prisma.unit.findMany({ orderBy: { name: "asc" } }),
     prisma.user.groupBy({ by: ["unitId"], _count: { _all: true } }),
-    prisma.bet.groupBy({
+    prisma.entry.groupBy({
       by: ["unitId", "status"],
       _count: { _all: true },
       _sum: { amount: true, prizeContribution: true, unitCommission: true },
     }),
-    prisma.bet.groupBy({
-      by: ["unitId"],
-      where: { status: "CONFIRMED" },
-      _max: { confirmedAt: true },
-    }),
+    prisma.entry.groupBy({ by: ["unitId"], where: { status: "CONFIRMED" }, _max: { confirmedAt: true } }),
   ]);
 
   const studentsMap = new Map<string | null, number>();
   for (const u of usersByUnit) studentsMap.set(u.unitId, u._count._all);
-
   const lastMap = new Map<string | null, Date | null>();
-  for (const l of lastBetByUnit) lastMap.set(l.unitId, l._max.confirmedAt ?? null);
+  for (const l of lastByUnit) lastMap.set(l.unitId, l._max.confirmedAt ?? null);
 
-  // Agrega palpites por unidade
-  type Agg = {
-    confirmed: number;
-    pending: number;
-    total: number;
-    revenue: number;
-    prize: number;
-    commission: number;
-  };
+  type Agg = { confirmed: number; pending: number; total: number; revenue: number; prize: number; commission: number };
   const betMap = new Map<string | null, Agg>();
   const ensure = (k: string | null) => {
     let a = betMap.get(k);
-    if (!a) {
-      a = { confirmed: 0, pending: 0, total: 0, revenue: 0, prize: 0, commission: 0 };
-      betMap.set(k, a);
-    }
+    if (!a) { a = { confirmed: 0, pending: 0, total: 0, revenue: 0, prize: 0, commission: 0 }; betMap.set(k, a); }
     return a;
   };
-  for (const r of betsByUnitStatus) {
+  for (const r of entriesByUnitStatus) {
     const a = ensure(r.unitId);
     const c = r._count._all;
     a.total += c;
@@ -114,14 +69,7 @@ export async function getUnitsOverview(): Promise<UnitsOverview> {
   }
 
   const units2: UnitMetric[] = units.map((u) => {
-    const a = betMap.get(u.id) ?? {
-      confirmed: 0,
-      pending: 0,
-      total: 0,
-      revenue: 0,
-      prize: 0,
-      commission: 0,
-    };
+    const a = betMap.get(u.id) ?? { confirmed: 0, pending: 0, total: 0, revenue: 0, prize: 0, commission: 0 };
     const last = lastMap.get(u.id) ?? null;
     return {
       id: u.id,
@@ -131,6 +79,7 @@ export async function getUnitsOverview(): Promise<UnitsOverview> {
       holderName: u.holderName,
       holderPhone: u.holderPhone,
       pixKey: u.pixKey,
+      entryFee: u.entryFee,
       students: studentsMap.get(u.id) ?? 0,
       betsConfirmed: a.confirmed,
       betsPending: a.pending,
@@ -144,14 +93,9 @@ export async function getUnitsOverview(): Promise<UnitsOverview> {
     };
   });
 
-  // Ranking: maior comissão primeiro, depois mais palpites
   units2.sort((x, y) => y.commission - x.commission || y.betsConfirmed - x.betsConfirmed);
 
-  const noUnitAgg = betMap.get(null) ?? {
-    confirmed: 0,
-    revenue: 0,
-    commission: 0,
-  } as Agg;
+  const noUnitAgg = betMap.get(null) ?? { confirmed: 0, revenue: 0, commission: 0 } as Agg;
 
   return {
     units: units2,

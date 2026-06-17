@@ -17,55 +17,48 @@ export async function POST(req: Request) {
     const event = await req.json();
     const type: string = event?.event ?? "";
 
-    // ---------- Pagamentos (palpites) ----------
+    // ---------- Pagamentos (entrada no bolão e dicas do Especialista) ----------
     if (type.startsWith("PAYMENT_") && event?.payment?.id) {
       const p = event.payment;
-      const bet = await prisma.bet.findUnique({ where: { asaasPaymentId: p.id } });
-      if (!bet) {
-        // Pode ser um pedido do Especialista (IA paga)
-        const order = await prisma.specialistOrder.findUnique({
-          where: { asaasPaymentId: p.id },
-        });
-        if (order) {
-          const paidNow =
-            type === "PAYMENT_RECEIVED" ||
-            type === "PAYMENT_CONFIRMED" ||
-            isPaidStatus(p.status ?? "");
-          if (paidNow && order.status !== "CONFIRMED") {
-            await prisma.specialistOrder.update({
-              where: { id: order.id },
-              data: { status: "CONFIRMED", confirmedAt: new Date(), ...paymentSnapshot(p) },
-            });
-          } else if (type === "PAYMENT_REFUNDED" && order.status !== "REFUNDED") {
-            await prisma.specialistOrder.update({
-              where: { id: order.id },
-              data: { status: "REFUNDED" },
-            });
-          }
-        }
-        return NextResponse.json({ ok: true });
-      }
-
       const paid =
         type === "PAYMENT_RECEIVED" ||
         type === "PAYMENT_CONFIRMED" ||
         isPaidStatus(p.status ?? "");
 
-      if (paid && bet.status !== "CONFIRMED") {
-        await prisma.bet.update({
-          where: { id: bet.id },
-          data: { status: "CONFIRMED", confirmedAt: new Date(), ...paymentSnapshot(p) },
-        });
-      } else if (type === "PAYMENT_REFUNDED" && bet.status !== "REFUNDED") {
-        await prisma.bet.update({
-          where: { id: bet.id },
-          data: { status: "REFUNDED", isWinner: false },
-        });
-      } else if (
-        ["PAYMENT_OVERDUE", "PAYMENT_DELETED"].includes(type) &&
-        bet.status === "PENDING"
-      ) {
-        await prisma.bet.update({ where: { id: bet.id }, data: { status: "EXPIRED" } });
+      const entry = await prisma.entry.findUnique({ where: { asaasPaymentId: p.id } });
+      if (entry) {
+        if (paid && entry.status !== "CONFIRMED") {
+          await prisma.entry.update({
+            where: { id: entry.id },
+            data: { status: "CONFIRMED", confirmedAt: new Date(), ...paymentSnapshot(p) },
+          });
+        } else if (type === "PAYMENT_REFUNDED" && entry.status !== "REFUNDED") {
+          await prisma.entry.update({ where: { id: entry.id }, data: { status: "REFUNDED" } });
+        } else if (
+          ["PAYMENT_OVERDUE", "PAYMENT_DELETED"].includes(type) &&
+          entry.status === "PENDING"
+        ) {
+          await prisma.entry.update({ where: { id: entry.id }, data: { status: "EXPIRED" } });
+        }
+        return NextResponse.json({ ok: true });
+      }
+
+      // Senão, pode ser um pedido do Especialista (IA paga)
+      const order = await prisma.specialistOrder.findUnique({
+        where: { asaasPaymentId: p.id },
+      });
+      if (order) {
+        if (paid && order.status !== "CONFIRMED") {
+          await prisma.specialistOrder.update({
+            where: { id: order.id },
+            data: { status: "CONFIRMED", confirmedAt: new Date(), ...paymentSnapshot(p) },
+          });
+        } else if (type === "PAYMENT_REFUNDED" && order.status !== "REFUNDED") {
+          await prisma.specialistOrder.update({
+            where: { id: order.id },
+            data: { status: "REFUNDED" },
+          });
+        }
       }
       return NextResponse.json({ ok: true });
     }

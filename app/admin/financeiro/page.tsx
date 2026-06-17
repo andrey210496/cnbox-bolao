@@ -58,7 +58,7 @@ export default async function FinanceiroPage() {
               <Card
                 label="Prêmios a distribuir"
                 value={formatBRL(fin.prizePool)}
-                hint={`${fin.betsCount} palpite(s)`}
+                hint={`${fin.entriesCount} entrada(s)`}
               />
               <Card label="Comissões das unidades" value={formatBRL(fin.commissions)} />
               <Card

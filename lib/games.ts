@@ -1,6 +1,6 @@
 import { prisma } from "./prisma";
 
-export type GameWithPool = {
+export type GameLite = {
   id: string;
   homeTeam: string;
   homeCode: string;
@@ -12,57 +12,31 @@ export type GameWithPool = {
   status: string;
   finalHome: number | null;
   finalAway: number | null;
-  pool: number; // prêmio acumulado (80%)
-  arrecadado: number; // total pago
-  bets: number; // palpites confirmados
 };
 
 export function isOpen(g: { status: string; kickoffAt: Date }): boolean {
   return g.status === "SCHEDULED" && Date.now() < new Date(g.kickoffAt).getTime();
 }
 
-/**
- * Lista jogos com prêmio acumulado e arrecadação (apenas palpites confirmados).
- * Bolão POR UNIDADE: se `scope.unitId` for informado, o prêmio/contagem consideram
- * só os palpites daquela unidade (cada aluno concorre só na própria unidade).
- * Sem escopo = total da rede (usado na landing pública).
- */
-export async function listGamesWithPools(scope?: {
-  unitId: string | null;
-}): Promise<GameWithPool[]> {
+/** Lista os jogos (sem pool — no modelo de liga o prêmio é por unidade, não por jogo). */
+export async function listGames(): Promise<GameLite[]> {
   const games = await prisma.game.findMany({
     where: { status: { in: ["SCHEDULED", "CLOSED", "FINISHED"] } },
     orderBy: { kickoffAt: "asc" },
   });
-  if (games.length === 0) return [];
-
-  const agg = await prisma.bet.groupBy({
-    by: ["gameId"],
-    where: { status: "CONFIRMED", ...(scope ? { unitId: scope.unitId } : {}) },
-    _sum: { prizeContribution: true, amount: true },
-    _count: { _all: true },
-  });
-  const map = new Map(agg.map((a) => [a.gameId, a]));
-
-  return games.map((g) => {
-    const a = map.get(g.id);
-    return {
-      id: g.id,
-      homeTeam: g.homeTeam,
-      homeCode: g.homeCode,
-      awayTeam: g.awayTeam,
-      awayCode: g.awayCode,
-      competition: g.competition,
-      stage: g.stage,
-      kickoffAt: g.kickoffAt,
-      status: g.status,
-      finalHome: g.finalHome,
-      finalAway: g.finalAway,
-      pool: a?._sum.prizeContribution ?? 0,
-      arrecadado: a?._sum.amount ?? 0,
-      bets: a?._count._all ?? 0,
-    };
-  });
+  return games.map((g) => ({
+    id: g.id,
+    homeTeam: g.homeTeam,
+    homeCode: g.homeCode,
+    awayTeam: g.awayTeam,
+    awayCode: g.awayCode,
+    competition: g.competition,
+    stage: g.stage,
+    kickoffAt: g.kickoffAt,
+    status: g.status,
+    finalHome: g.finalHome,
+    finalAway: g.finalAway,
+  }));
 }
 
 export function formatGameDate(d: Date): string {

@@ -16,17 +16,14 @@ type Game = {
   status: string;
   finalHome: number | null;
   finalAway: number | null;
-  payoutStatus: string;
-  bets: number;
-  pool: number;
-  arrecadado: number;
 };
 type Unit = {
   id: string;
   name: string;
   slug: string;
   active: boolean;
-  bets: number;
+  entryFee: number;
+  entries: number;
   commission: number;
   arrecadado: number;
   holderName: string | null;
@@ -60,11 +57,11 @@ export default function AdminDashboard({
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
           <Stat label="Usuários" value={String(stats.users)} />
-          <Stat label="Palpites" value={String(stats.bets)} />
+          <Stat label="Entradas pagas" value={String(stats.entries)} />
+          <Stat label="Palpites" value={String(stats.predictions)} />
           <Stat label="Arrecadado" value={formatBRL(stats.arrecadado)} accent />
           <Stat label="Em prêmios" value={formatBRL(stats.prize)} />
-          <Stat label="Casa (líq.)" value={formatBRL(stats.house)} accent />
-          <Stat label="Comissões" value={formatBRL(stats.commissions)} />
+          <Stat label="Casa (bruto)" value={formatBRL(stats.house)} accent />
         </div>
 
         <Games games={games} teams={teams} onChange={refresh} />
@@ -221,7 +218,7 @@ function GameRow({ g, onChange }: { g: Game; onChange: () => void }) {
     <div className="rounded-2xl bg-ink/40 border border-white/5 p-3 flex flex-wrap items-center gap-3">
       <div className="flex-1 min-w-[180px]">
         <p className="font-medium">{g.homeTeam} <span className="text-white/30">x</span> {g.awayTeam}</p>
-        <p className="text-xs text-white/40">{date} · {g.bets} palpites · {formatBRL(g.pool)} em prêmio · <span className="uppercase">{g.status}</span></p>
+        <p className="text-xs text-white/40">{date} · <span className="uppercase">{g.status}</span>{g.finalHome !== null ? ` · ${g.finalHome}x${g.finalAway}` : ""}</p>
       </div>
 
       <div className="flex items-center gap-1.5">
@@ -232,17 +229,12 @@ function GameRow({ g, onChange }: { g: Game; onChange: () => void }) {
       </div>
 
       <div className="flex items-center gap-1.5">
-        {g.status === "FINISHED" && (
-          <a href={`/admin/apuracao/${g.id}`} className="rounded-lg glass px-3 py-2 text-xs text-brand hover:text-brand-light">Apurar →</a>
-        )}
         {g.status === "SCHEDULED" ? (
           <button onClick={() => call({ action: "status", status: "CLOSED" })} className="rounded-lg glass px-3 py-2 text-xs text-white/60">Fechar</button>
         ) : g.status === "CLOSED" ? (
           <button onClick={() => call({ action: "status", status: "SCHEDULED" })} className="rounded-lg glass px-3 py-2 text-xs text-white/60">Reabrir</button>
         ) : null}
-        {g.bets === 0 && (
-          <button onClick={del} className="rounded-lg glass px-3 py-2 text-xs text-red-300/70 hover:text-red-300">Excluir</button>
-        )}
+        <button onClick={del} className="rounded-lg glass px-3 py-2 text-xs text-red-300/70 hover:text-red-300">Excluir</button>
       </div>
     </div>
   );
@@ -277,7 +269,7 @@ function Units({ units, unitPercent, onChange }: { units: Unit[]; unitPercent: n
     <section className="card-premium rounded-3xl p-6">
       <h2 className="font-display text-2xl mb-1">UNIDADES</h2>
       <p className="text-sm text-white/50 mb-4">
-        Cada unidade tem um link de indicação. Comissão: {unitPercent}% do que a unidade arrecadar (palpites pagos).
+        Cada unidade tem um link de indicação. Comissão: {unitPercent}% do que a unidade arrecadar (entradas pagas). O valor da entrada é definido pelo responsável da unidade.
       </p>
 
       <div className="flex gap-2 mb-5">
@@ -292,7 +284,7 @@ function Units({ units, unitPercent, onChange }: { units: Unit[]; unitPercent: n
           <div key={u.id} className="rounded-2xl bg-ink/40 border border-white/5 p-3 flex flex-wrap items-center gap-3">
             <div className="flex-1 min-w-[160px]">
               <p className="font-medium">{u.name} {!u.active && <span className="text-xs text-white/30">(inativa)</span>}</p>
-              <p className="text-xs text-white/40">{u.bets} palpites · comissão {formatBRL(u.commission)}</p>
+              <p className="text-xs text-white/40">{u.entries} entradas · entrada {formatBRL(u.entryFee)} · comissão {formatBRL(u.commission)}</p>
               {u.holderName ? (
                 <p className="text-xs text-white/40 mt-0.5">
                   Resp.: {u.holderName}

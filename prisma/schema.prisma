@@ -22,10 +22,12 @@ model Unit {
   pixKeyType   String? // CPF | EMAIL | PHONE | EVP
   passwordHash String? // senha do holder para acessar o painel
 
+  entryFee Float @default(50) // valor da ENTRADA no bolão desta unidade (mín. R$50)
+
   createdAt DateTime @default(now())
 
-  users User[]
-  bets  Bet[]
+  users   User[]
+  entries Entry[]
 
   @@index([slug])
 }
@@ -43,7 +45,8 @@ model User {
   unit         Unit?    @relation(fields: [unitId], references: [id])
   createdAt    DateTime @default(now())
 
-  bets Bet[]
+  entry       Entry?
+  predictions Prediction[]
 
   @@index([cpf])
 }
@@ -59,77 +62,90 @@ model Game {
   stage        String? // fase (Grupos, Oitavas, etc.)
   notes        String? // contexto opcional p/ o Especialista IA (lesões, fase, etc.)
   kickoffAt    DateTime
-  status       String    @default("SCHEDULED") // SCHEDULED | CLOSED | FINISHED | CANCELED
-  finalHome    Int?
-  finalAway    Int?
-  finishedAt   DateTime?
-  payoutStatus String    @default("NONE") // NONE | COMPUTED | APPROVED | PAID
-  createdAt    DateTime  @default(now())
+  status     String    @default("SCHEDULED") // SCHEDULED | CLOSED | FINISHED | CANCELED
+  finalHome  Int?
+  finalAway  Int?
+  finishedAt DateTime?
+  scoredAt   DateTime? // quando os pontos das previsões deste jogo foram calculados
+  createdAt  DateTime  @default(now())
 
-  bets Bet[]
+  predictions Prediction[]
 
   @@index([status])
   @@index([kickoffAt])
 }
 
-// Palpite
-model Bet {
+// ENTRADA no bolão — pagamento ÚNICO que dá direito a palpitar em todos os jogos.
+// Uma por usuário. As % (prêmio/casa/unidade) incidem sobre este valor.
+model Entry {
+  id     String  @id @default(cuid())
+  userId String  @unique
+  user   User    @relation(fields: [userId], references: [id])
+  unitId String?
+  unit   Unit?   @relation(fields: [unitId], references: [id])
+
+  amount            Float // valor pago (entrada da unidade)
+  prizeContribution Float // parte que vai pro prêmio da unidade
+  houseCut          Float // parte da casa
+  unitCommission    Float @default(0) // comissão da unidade (sai da casa)
+
+  // Snapshot financeiro do Asaas (capturado na confirmação)
+  netValue            Float?
+  billingType         String? // PIX | CREDIT_CARD | DEBIT_CARD
+  estimatedCreditDate DateTime?
+
+  status          String    @default("PENDING") // PENDING | CONFIRMED | EXPIRED | FAILED | REFUNDED
+  asaasCustomerId String?
+  asaasPaymentId  String?   @unique
+  checkoutUrl     String?
+  pixPayload      String?
+  pixQrImage      String?
+  pixExpiration   DateTime?
+
+  createdAt   DateTime  @default(now())
+  confirmedAt DateTime?
+
+  @@index([unitId, status])
+}
+
+// PALPITE — grátis (após pagar a entrada), um por jogo, editável até o início.
+model Prediction {
   id     String  @id @default(cuid())
   userId String
   user   User    @relation(fields: [userId], references: [id])
   gameId String
   game   Game    @relation(fields: [gameId], references: [id])
-  unitId String?
-  unit   Unit?   @relation(fields: [unitId], references: [id])
+  unitId String? // copiado do usuário, para o ranking por unidade
 
   homeScore Int
   awayScore Int
 
-  amount            Float @default(10) // valor pago
-  prizeContribution Float // parte que vai pro prêmio (80%)
-  houseCut          Float // parte da casa (20%)
-  unitCommission    Float @default(0) // comissão da unidade (sai da casa)
+  points   Int       @default(0) // calculado após o jogo (exato 5 / vencedor 2 / saldo 1)
+  scoredAt DateTime?
 
-  // Snapshot financeiro do Asaas (capturado na confirmação) — para o dashboard do bolão
-  netValue            Float? // valor líquido (já com a tarifa do Asaas descontada)
-  billingType         String? // PIX | CREDIT_CARD | DEBIT_CARD
-  estimatedCreditDate DateTime? // data estimada de crédito na conta (cartão)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  status          String    @default("PENDING") // PENDING | CONFIRMED | EXPIRED | FAILED | REFUNDED
-  asaasCustomerId String?
-  asaasPaymentId  String?   @unique
-  checkoutUrl     String? // página de pagamento do Asaas (PIX, débito, crédito à vista)
-  pixPayload      String?
-  pixQrImage      String?
-  pixExpiration   DateTime?
-
-  isWinner Boolean @default(false)
-  payout   Payout?
-
-  createdAt   DateTime  @default(now())
-  confirmedAt DateTime?
-
-  @@index([gameId, status])
-  @@index([userId])
-  @@index([unitId, status])
+  @@unique([userId, gameId])
+  @@index([gameId])
+  @@index([unitId])
 }
 
-// Repasse PIX ao ganhador (pagamento em massa)
+// Repasse PIX ao ganhador da liga da unidade (no fim da Copa). Uma por ganhador.
 model Payout {
   id              String    @id @default(cuid())
-  betId           String    @unique
-  bet             Bet       @relation(fields: [betId], references: [id])
-  gameId          String
-  userId          String
+  userId          String    @unique
+  unitId          String?
   pixKey          String
   amount          Float
+  points          Int       @default(0) // pontuação do ganhador no fechamento
   status          String    @default("PENDING") // PENDING | APPROVED | PROCESSING | SENT | FAILED
   asaasTransferId String?   @unique
   failReason      String?
   createdAt       DateTime  @default(now())
   sentAt          DateTime?
 
-  @@index([gameId, status])
+  @@index([unitId, status])
 }
 
 // Compra do "Especialista CNBOX" (IA paga, 100% da casa) — acesso por jogo

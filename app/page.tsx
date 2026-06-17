@@ -3,28 +3,22 @@ import SiteHeader from "@/components/SiteHeader";
 import SiteFooter from "@/components/SiteFooter";
 import Logo from "@/components/Logo";
 import GameCard from "@/components/GameCard";
-import { listGamesWithPools } from "@/lib/games";
-import { getEconomics, formatBRL, prizePercent } from "@/lib/economics";
+import { listGames, isOpen } from "@/lib/games";
 import { getUserId } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  let games = await listGamesWithPools().catch(() => []);
-  const eco = await getEconomics();
+  const games = await listGames().catch(() => []);
   const logged = Boolean(await getUserId());
   const betHref = logged ? "/app" : "/cadastro";
-
-  const totalPool = games.reduce((s, g) => s + g.pool, 0);
-  const openGames = games.filter(
-    (g) => g.status === "SCHEDULED" && Date.now() < new Date(g.kickoffAt).getTime()
-  );
+  const openGames = games.filter((g) => isOpen(g));
 
   const steps = [
-    { icon: "📝", title: "Crie sua conta", desc: "Cadastro rápido com seus dados e chave PIX." },
-    { icon: "⚽", title: "Escolha o jogo", desc: "Palpite no placar de qualquer jogo da Copa." },
-    { icon: "⚡", title: `Pague ${formatBRL(eco.bet_price)}`, desc: "Via PIX, na hora, confirmação automática." },
-    { icon: "🏆", title: "Receba o prêmio", desc: "Acertou? O prêmio cai no seu PIX em até 24h." },
+    { icon: "📝", title: "Crie sua conta", desc: "Cadastro rápido e escolha sua unidade." },
+    { icon: "🎟️", title: "Entre no bolão", desc: "Pagamento único pra concorrer a temporada toda." },
+    { icon: "⚽", title: "Palpite em tudo", desc: "Dê seu placar em todos os jogos da Copa, sem pagar de novo." },
+    { icon: "🏆", title: "Suba no ranking", desc: "Some pontos a cada acerto. O 1º da sua unidade leva o prêmio." },
   ];
 
   return (
@@ -46,16 +40,14 @@ export default async function Home() {
           <Logo height={56} className="mb-6" />
 
           <h1 className="w-full font-display text-5xl sm:text-7xl xl:text-8xl leading-[0.9]">
-            PALPITE EM TODOS OS JOGOS,{" "}
-            <span className="text-brand text-glow">LEVE A BOLADA.</span>
+            PALPITE, PONTUE,{" "}
+            <span className="text-brand text-glow">LIDERE SUA UNIDADE.</span>
           </h1>
 
           <p className="mt-6 text-base sm:text-xl text-white/65 max-w-2xl">
-            Dê seu palpite no placar dos jogos da Copa por apenas{" "}
-            <strong className="text-brand">{formatBRL(eco.bet_price)}</strong> via PIX.
-            Acertou, divide o prêmio.{" "}
-            {Math.round(prizePercent(eco.house_percent, eco.unit_percent))}% de
-            tudo vai pros acertadores.
+            Entre uma vez no bolão da sua unidade e palpite em{" "}
+            <strong className="text-brand">todos os jogos da Copa</strong>. Cada acerto vale
+            pontos. No fim, quem tiver mais pontos na unidade leva o prêmio.
           </p>
 
           <div className="mt-8 flex flex-col sm:flex-row items-center gap-3">
@@ -63,7 +55,7 @@ export default async function Home() {
               href={betHref}
               className="btn-primary px-9 py-4 rounded-2xl font-display text-xl tracking-wide"
             >
-              {logged ? "VER JOGOS E PALPITAR →" : "COMEÇAR AGORA →"}
+              {logged ? "IR PRO BOLÃO →" : "COMEÇAR AGORA →"}
             </Link>
             {!logged && (
               <Link
@@ -74,13 +66,6 @@ export default async function Home() {
               </Link>
             )}
           </div>
-
-          {totalPool > 0 && (
-            <p className="mt-8 text-sm text-white/50">
-              💰 Prêmios acumulados em jogo:{" "}
-              <strong className="text-brand text-glow">{formatBRL(totalPool)}</strong>
-            </p>
-          )}
         </div>
       </section>
 

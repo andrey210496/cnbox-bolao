@@ -1,91 +1,75 @@
 import { prisma } from "./prisma";
 import { round2 } from "./format";
+import { getUnitPool, getUnitStandings } from "./ranking";
 
-export type WinnerShare = {
-  betId: string;
+export type SeasonWinner = {
   userId: string;
+  unitId: string;
+  unitName: string;
   name: string;
   pixKey: string;
   pixKeyType: string;
   amount: number;
-};
-
-export type PayoutPreview = {
-  gameId: string;
-  pool: number; // prêmio total (80%)
-  count: number; // nº de ganhadores
-  winners: WinnerShare[];
+  points: number;
 };
 
 /**
- * Calcula os ganhadores (placar exato, palpites confirmados) e a cota de cada um.
- * Distribui os centavos restantes para não sobrar nem faltar do prêmio.
+ * Apuração final (fim da Copa): para cada unidade, o(s) líder(es) em pontos
+ * levam o prêmio acumulado da unidade. Empate divide igual. Unidade sem
+ * ninguém pontuando não paga (fica com a casa).
  */
-export async function computePayoutPreview(gameId: string): Promise<PayoutPreview> {
-  const game = await prisma.game.findUnique({ where: { id: gameId } });
-  if (!game) throw new Error("Jogo não encontrado.");
-  if (game.status !== "FINISHED" || game.finalHome === null || game.finalAway === null) {
-    throw new Error("O jogo ainda não teve o placar final lançado.");
-  }
-
-  // BOLÃO POR UNIDADE: cada unidade é um bolão separado.
-  // Prêmio da unidade = soma das contribuições (80%) dos confirmados DAQUELA unidade,
-  // dividido só entre os ganhadores DAQUELA unidade. Unidade sem ganhador não paga
-  // (o prêmio dela fica com a casa). null = "sem unidade", concorre entre si.
-  const bets = await prisma.bet.findMany({
-    where: { gameId, status: "CONFIRMED" },
-    select: {
-      id: true,
-      userId: true,
-      unitId: true,
-      homeScore: true,
-      awayScore: true,
-      prizeContribution: true,
-      user: { select: { fullName: true, pixKey: true, pixKeyType: true } },
-    },
-    orderBy: { confirmedAt: "asc" },
+export async function computeSeasonPayouts(): Promise<{
+  winners: SeasonWinner[];
+  totalPool: number;
+}> {
+  const units = await prisma.unit.findMany({
+    where: { active: true },
+    select: { id: true, name: true },
   });
 
-  const groups = new Map<string | null, typeof bets>();
-  for (const b of bets) {
-    const arr = groups.get(b.unitId) ?? [];
-    arr.push(b);
-    groups.set(b.unitId, arr);
-  }
+  const winners: SeasonWinner[] = [];
+  let totalPool = 0;
 
-  let pool = 0; // prêmio total gerado (todas as unidades, referência)
-  const winners: WinnerShare[] = [];
+  for (const u of units) {
+    const pool = await getUnitPool(u.id);
+    totalPool = round2(totalPool + pool);
+    if (pool <= 0) continue;
 
-  for (const groupBets of groups.values()) {
-    const groupPool = round2(
-      groupBets.reduce((s, b) => s + (b.prizeContribution ?? 0), 0)
-    );
-    pool = round2(pool + groupPool);
+    const standings = await getUnitStandings(u.id);
+    if (standings.length === 0 || standings[0].points <= 0) continue;
 
-    const groupWinners = groupBets.filter(
-      (b) => b.homeScore === game.finalHome && b.awayScore === game.finalAway
-    );
-    const count = groupWinners.length;
-    if (count === 0 || groupPool <= 0) continue;
+    const top = standings[0].points;
+    const leaders = standings.filter((s) => s.points === top);
 
-    const baseCents = Math.floor((groupPool * 100) / count);
-    let remainder = Math.round(groupPool * 100) - baseCents * count;
-    for (const b of groupWinners) {
+    const n = leaders.length;
+    const baseCents = Math.floor((pool * 100) / n);
+    let remainder = Math.round(pool * 100) - baseCents * n;
+
+    const users = await prisma.user.findMany({
+      where: { id: { in: leaders.map((l) => l.userId) } },
+      select: { id: true, pixKey: true, pixKeyType: true },
+    });
+    const pix = new Map(users.map((x) => [x.id, x]));
+
+    for (const l of leaders) {
       let cents = baseCents;
       if (remainder > 0) {
         cents += 1;
         remainder -= 1;
       }
+      const pu = pix.get(l.userId);
       winners.push({
-        betId: b.id,
-        userId: b.userId,
-        name: b.user.fullName,
-        pixKey: b.user.pixKey,
-        pixKeyType: b.user.pixKeyType,
+        userId: l.userId,
+        unitId: u.id,
+        unitName: u.name,
+        name: l.name,
+        pixKey: pu?.pixKey ?? "",
+        pixKeyType: pu?.pixKeyType ?? "CPF",
         amount: cents / 100,
+        points: l.points,
       });
     }
   }
 
-  return { gameId, pool, count: winners.length, winners };
+  return { winners, totalPool };
 }
