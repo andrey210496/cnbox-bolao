@@ -28,33 +28,49 @@ export async function computePayoutPreview(gameId: string): Promise<PayoutPrevie
     throw new Error("O jogo ainda não teve o placar final lançado.");
   }
 
-  // Prêmio total = soma das contribuições (80%) de todos os confirmados
-  const poolAgg = await prisma.bet.aggregate({
+  // BOLÃO POR UNIDADE: cada unidade é um bolão separado.
+  // Prêmio da unidade = soma das contribuições (80%) dos confirmados DAQUELA unidade,
+  // dividido só entre os ganhadores DAQUELA unidade. Unidade sem ganhador não paga
+  // (o prêmio dela fica com a casa). null = "sem unidade", concorre entre si.
+  const bets = await prisma.bet.findMany({
     where: { gameId, status: "CONFIRMED" },
-    _sum: { prizeContribution: true },
-  });
-  const pool = round2(poolAgg._sum.prizeContribution ?? 0);
-
-  const winningBets = await prisma.bet.findMany({
-    where: {
-      gameId,
-      status: "CONFIRMED",
-      homeScore: game.finalHome,
-      awayScore: game.finalAway,
-    },
-    include: {
+    select: {
+      id: true,
+      userId: true,
+      unitId: true,
+      homeScore: true,
+      awayScore: true,
+      prizeContribution: true,
       user: { select: { fullName: true, pixKey: true, pixKeyType: true } },
     },
     orderBy: { confirmedAt: "asc" },
   });
 
-  const count = winningBets.length;
+  const groups = new Map<string | null, typeof bets>();
+  for (const b of bets) {
+    const arr = groups.get(b.unitId) ?? [];
+    arr.push(b);
+    groups.set(b.unitId, arr);
+  }
+
+  let pool = 0; // prêmio total gerado (todas as unidades, referência)
   const winners: WinnerShare[] = [];
 
-  if (count > 0 && pool > 0) {
-    const baseCents = Math.floor((pool * 100) / count); // centavos por ganhador
-    let remainder = Math.round(pool * 100) - baseCents * count; // centavos a distribuir
-    for (const b of winningBets) {
+  for (const groupBets of groups.values()) {
+    const groupPool = round2(
+      groupBets.reduce((s, b) => s + (b.prizeContribution ?? 0), 0)
+    );
+    pool = round2(pool + groupPool);
+
+    const groupWinners = groupBets.filter(
+      (b) => b.homeScore === game.finalHome && b.awayScore === game.finalAway
+    );
+    const count = groupWinners.length;
+    if (count === 0 || groupPool <= 0) continue;
+
+    const baseCents = Math.floor((groupPool * 100) / count);
+    let remainder = Math.round(groupPool * 100) - baseCents * count;
+    for (const b of groupWinners) {
       let cents = baseCents;
       if (remainder > 0) {
         cents += 1;
@@ -71,5 +87,5 @@ export async function computePayoutPreview(gameId: string): Promise<PayoutPrevie
     }
   }
 
-  return { gameId, pool, count, winners };
+  return { gameId, pool, count: winners.length, winners };
 }

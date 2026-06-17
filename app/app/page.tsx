@@ -22,7 +22,8 @@ export default async function AppHome() {
   const user = await getCurrentUser();
   if (!user) redirect("/entrar");
 
-  const games = await listGamesWithPools().catch(() => []);
+  // Bolão por unidade: prêmios/contagens consideram só a unidade do aluno
+  const games = await listGamesWithPools({ unitId: user.unitId }).catch(() => []);
   const open = games.filter(
     (g) => g.status === "SCHEDULED" && Date.now() < new Date(g.kickoffAt).getTime()
   );
@@ -53,7 +54,8 @@ export default async function AppHome() {
     ? await prisma.bet
         .groupBy({
           by: ["gameId"],
-          where: { gameId: { in: gameIds }, status: "CONFIRMED" },
+          // só a unidade do aluno (bolão por unidade)
+          where: { gameId: { in: gameIds }, status: "CONFIRMED", unitId: user.unitId },
           _sum: { prizeContribution: true },
           _count: { _all: true },
         })
@@ -79,6 +81,7 @@ export default async function AppHome() {
         where: {
           gameId: g.id,
           status: "CONFIRMED",
+          unitId: user.unitId, // ganhadores só da unidade do aluno
           homeScore: g.finalHome!,
           awayScore: g.finalAway!,
         },
@@ -127,8 +130,9 @@ export default async function AppHome() {
           ESCOLHA UM JOGO E <span className="text-brand text-glow">PALPITE</span>
         </h1>
         <p className="text-white/55 text-sm mb-7">
-          Você está na unidade{" "}
-          <strong className="text-white/80">{user.unitName ?? "—"}</strong>.
+          Você concorre no bolão da unidade{" "}
+          <strong className="text-white/80">{user.unitName ?? "—"}</strong> — o prêmio é
+          dividido entre os ganhadores da sua unidade.
         </p>
 
         {/* Jogos abertos */}

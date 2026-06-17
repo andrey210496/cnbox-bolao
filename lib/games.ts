@@ -21,8 +21,15 @@ export function isOpen(g: { status: string; kickoffAt: Date }): boolean {
   return g.status === "SCHEDULED" && Date.now() < new Date(g.kickoffAt).getTime();
 }
 
-/** Lista jogos com prêmio acumulado e arrecadação (apenas palpites confirmados). */
-export async function listGamesWithPools(): Promise<GameWithPool[]> {
+/**
+ * Lista jogos com prêmio acumulado e arrecadação (apenas palpites confirmados).
+ * Bolão POR UNIDADE: se `scope.unitId` for informado, o prêmio/contagem consideram
+ * só os palpites daquela unidade (cada aluno concorre só na própria unidade).
+ * Sem escopo = total da rede (usado na landing pública).
+ */
+export async function listGamesWithPools(scope?: {
+  unitId: string | null;
+}): Promise<GameWithPool[]> {
   const games = await prisma.game.findMany({
     where: { status: { in: ["SCHEDULED", "CLOSED", "FINISHED"] } },
     orderBy: { kickoffAt: "asc" },
@@ -31,7 +38,7 @@ export async function listGamesWithPools(): Promise<GameWithPool[]> {
 
   const agg = await prisma.bet.groupBy({
     by: ["gameId"],
-    where: { status: "CONFIRMED" },
+    where: { status: "CONFIRMED", ...(scope ? { unitId: scope.unitId } : {}) },
     _sum: { prizeContribution: true, amount: true },
     _count: { _all: true },
   });
