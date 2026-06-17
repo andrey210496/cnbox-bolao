@@ -20,6 +20,7 @@ export type UnitMetric = {
   conversion: number;
   avgTicket: number;
   lastBetAt: string | null;
+  activatedAt: string | null; // quando a taxa de ativação foi confirmada
 };
 
 export type UnitsOverview = {
@@ -31,7 +32,7 @@ export type UnitsOverview = {
 const n = (v: number | null | undefined) => v ?? 0;
 
 export async function getUnitsOverview(): Promise<UnitsOverview> {
-  const [units, usersByUnit, entriesByUnitStatus, lastByUnit] = await Promise.all([
+  const [units, usersByUnit, entriesByUnitStatus, lastByUnit, activByUnit] = await Promise.all([
     prisma.unit.findMany({ orderBy: { name: "asc" } }),
     prisma.user.groupBy({ by: ["unitId"], _count: { _all: true } }),
     prisma.entry.groupBy({
@@ -40,12 +41,15 @@ export async function getUnitsOverview(): Promise<UnitsOverview> {
       _sum: { amount: true, prizeContribution: true, unitCommission: true },
     }),
     prisma.entry.groupBy({ by: ["unitId"], where: { status: "CONFIRMED" }, _max: { confirmedAt: true } }),
+    prisma.unitOrder.groupBy({ by: ["unitId"], where: { status: "CONFIRMED" }, _max: { confirmedAt: true } }),
   ]);
 
   const studentsMap = new Map<string | null, number>();
   for (const u of usersByUnit) studentsMap.set(u.unitId, u._count._all);
   const lastMap = new Map<string | null, Date | null>();
   for (const l of lastByUnit) lastMap.set(l.unitId, l._max.confirmedAt ?? null);
+  const activMap = new Map<string, Date | null>();
+  for (const a of activByUnit) activMap.set(a.unitId, a._max.confirmedAt ?? null);
 
   type Agg = { confirmed: number; pending: number; total: number; revenue: number; prize: number; commission: number };
   const betMap = new Map<string | null, Agg>();
@@ -90,6 +94,7 @@ export async function getUnitsOverview(): Promise<UnitsOverview> {
       conversion: a.total > 0 ? round2((a.confirmed / a.total) * 100) : 0,
       avgTicket: a.confirmed > 0 ? round2(a.revenue / a.confirmed) : 0,
       lastBetAt: last ? last.toISOString() : null,
+      activatedAt: activMap.get(u.id)?.toISOString() ?? null,
     };
   });
 

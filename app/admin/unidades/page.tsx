@@ -76,10 +76,17 @@ export default async function UnidadesPage() {
                     <tr key={u.id} className="border-t border-white/5 align-top">
                       <td className="py-3 pr-3 text-white/50">{medals[i] ?? i + 1}</td>
                       <td className="py-3 pr-4">
-                        <p className="font-medium">
-                          {u.name}{" "}
-                          {!u.active && <span className="text-[10px] text-white/30">(inativa)</span>}
+                        <p className="font-medium flex items-center gap-2">
+                          {u.name}
+                          {u.active ? (
+                            <span className="text-[10px] rounded-full bg-brand/15 border border-brand/30 px-2 py-0.5 text-brand">ATIVA</span>
+                          ) : (
+                            <span className="text-[10px] rounded-full bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 text-amber-300">INATIVA</span>
+                          )}
                         </p>
+                        {u.activatedAt && (
+                          <p className="text-[11px] text-white/30">ativada em {fmtWhen(u.activatedAt)}</p>
+                        )}
                         <p className="text-xs text-white/40">
                           {u.holderName ? u.holderName : "sem responsável"}
                           {u.holderPhone ? ` · ${u.holderPhone}` : ""}
