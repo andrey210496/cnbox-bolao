@@ -4,9 +4,11 @@ import { createHolderSession, hashPassword } from "@/lib/auth";
 import {
   detectPixKey,
   isStrongPassword,
+  isValidCPF,
   isValidPhone,
   onlyDigits,
 } from "@/lib/validation";
+import { createActivationOrder } from "@/lib/unit-activation";
 import { rateLimit, clientIp, maybeSweep } from "@/lib/ratelimit";
 
 function slugify(s: string): string {
@@ -21,7 +23,7 @@ function slugify(s: string): string {
   );
 }
 
-// Auto-cadastro do responsável (holder) por uma unidade. Público, liberado na hora.
+// Auto-cadastro do responsável (holder). A unidade fica INATIVA até pagar a ativação.
 export async function POST(req: Request) {
   maybeSweep();
   if (!rateLimit(`unit:${clientIp(req)}`, 6, 10 * 60 * 1000)) {
@@ -36,12 +38,14 @@ export async function POST(req: Request) {
     const name = String(b?.name ?? "").trim();
     const holderName = String(b?.holderName ?? "").trim();
     const holderPhone = onlyDigits(String(b?.holderPhone ?? ""));
+    const holderCpf = onlyDigits(String(b?.holderCpf ?? ""));
     const pixRaw = String(b?.pixKey ?? "").trim();
     const password = String(b?.password ?? "");
 
     if (name.length < 2) return bad("Informe o nome da unidade.");
     if (holderName.length < 3) return bad("Informe o nome do responsável.");
     if (!isValidPhone(holderPhone)) return bad("WhatsApp inválido (DDD + número).");
+    if (!isValidCPF(holderCpf)) return bad("CPF do responsável inválido.");
     const pix = detectPixKey(pixRaw);
     if (!pix) return bad("Chave PIX inválida (CPF, e-mail, telefone ou aleatória).");
     if (!isStrongPassword(password))
@@ -57,14 +61,14 @@ export async function POST(req: Request) {
 
     const passwordHash = await hashPassword(password);
 
-    // Já existe unidade com esse nome? Reaproveita o registro (atualiza dados do holder).
+    // Já existe unidade com esse nome sem responsável? Reaproveita.
     const existing = await prisma.unit.findFirst({
       where: { name: { equals: name, mode: "insensitive" } },
       select: { id: true, slug: true, holderName: true },
     });
 
+    let unitId: string;
     if (existing) {
-      // Se já tem responsável cadastrado, não deixa sobrescrever (evita sequestro de unidade).
       if (existing.holderName) {
         return bad(
           "Já existe uma unidade com esse nome e responsável. Use outro nome ou fale com a CNBOX.",
@@ -76,54 +80,49 @@ export async function POST(req: Request) {
         data: {
           holderName,
           holderPhone,
+          holderCpf,
           pixKey: pix.key,
           pixKeyType: pix.type,
           passwordHash,
-          active: true,
+          active: false, // só ativa após pagar a ativação
         },
-        select: { id: true, slug: true },
+        select: { id: true },
       });
-      await createHolderSession(updated.id);
-      return ok(updated.slug, req);
+      unitId = updated.id;
+    } else {
+      let slug = slugify(name);
+      const base = slug;
+      let i = 1;
+      while (await prisma.unit.findUnique({ where: { slug } })) slug = `${base}-${i++}`;
+      const unit = await prisma.unit.create({
+        data: {
+          name,
+          slug,
+          holderName,
+          holderPhone,
+          holderCpf,
+          pixKey: pix.key,
+          pixKeyType: pix.type,
+          passwordHash,
+          active: false,
+        },
+        select: { id: true },
+      });
+      unitId = unit.id;
+      await prisma.auditLog
+        .create({ data: { action: "unit_self_register", actor: "holder", detail: `${name}` } })
+        .catch(() => {});
     }
 
-    // Gera slug único
-    let slug = slugify(name);
-    const base = slug;
-    let i = 1;
-    while (await prisma.unit.findUnique({ where: { slug } })) slug = `${base}-${i++}`;
+    await createHolderSession(unitId);
 
-    const unit = await prisma.unit.create({
-      data: {
-        name,
-        slug,
-        holderName,
-        holderPhone,
-        pixKey: pix.key,
-        pixKeyType: pix.type,
-        passwordHash,
-        active: true,
-      },
-      select: { id: true, slug: true },
-    });
-
-    await prisma.auditLog
-      .create({
-        data: { action: "unit_self_register", actor: "holder", detail: `${name} (${slug})` },
-      })
-      .catch(() => {});
-
-    await createHolderSession(unit.id);
-    return ok(unit.slug, req);
+    // Gera a cobrança de ativação
+    const orderId = await createActivationOrder(unitId);
+    return NextResponse.json({ ok: true, orderId });
   } catch (err) {
     console.error("[unit register] erro:", err);
     return bad("Erro ao cadastrar a unidade. Tente novamente.", 500);
   }
-}
-
-function ok(slug: string, req: Request) {
-  const base = process.env.NEXT_PUBLIC_SITE_URL || new URL(req.url).origin;
-  return NextResponse.json({ ok: true, slug, link: `${base}/u/${slug}` });
 }
 
 function bad(error: string, status = 400) {

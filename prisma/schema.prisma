@@ -18,6 +18,7 @@ model Unit {
   // Dados do responsável (holder) — preenchidos no auto-cadastro /parceiro
   holderName   String? // responsável pela unidade
   holderPhone  String? // WhatsApp do responsável (login)
+  holderCpf    String? // CPF do responsável (para a cobrança de ativação)
   pixKey       String? // chave PIX para receber a comissão
   pixKeyType   String? // CPF | EMAIL | PHONE | EVP
   passwordHash String? // senha do holder para acessar o painel
@@ -28,8 +29,32 @@ model Unit {
 
   users   User[]
   entries Entry[]
+  orders  UnitOrder[]
 
   @@index([slug])
+}
+
+// Cobrança de ATIVAÇÃO da unidade (taxa única paga pelo responsável; 100% da casa).
+model UnitOrder {
+  id     String @id @default(cuid())
+  unitId String
+  unit   Unit   @relation(fields: [unitId], references: [id])
+
+  amount Float @default(49.9)
+
+  netValue            Float?
+  billingType         String?
+  estimatedCreditDate DateTime?
+
+  status          String    @default("PENDING") // PENDING | CONFIRMED | EXPIRED | REFUNDED
+  asaasCustomerId String?
+  asaasPaymentId  String?   @unique
+  checkoutUrl     String?
+
+  createdAt   DateTime  @default(now())
+  confirmedAt DateTime?
+
+  @@index([status])
 }
 
 // Aluno/apostador

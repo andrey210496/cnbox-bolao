@@ -4,6 +4,7 @@ import Logo from "@/components/Logo";
 import LogoutButton from "@/components/LogoutButton";
 import CopyLinkBox from "@/components/CopyLinkBox";
 import EntryFeeEditor from "@/components/EntryFeeEditor";
+import ActivateUnitBanner from "@/components/ActivateUnitBanner";
 import { getHolderUnitId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { formatBRL } from "@/lib/economics";
@@ -55,6 +56,8 @@ export default async function HolderPanelPage() {
       </div>
 
       <div className="mx-auto max-w-[1100px] px-4 sm:px-8 py-8">
+        {!unit.active && <ActivateUnitBanner />}
+
         <h1 className="font-display text-3xl sm:text-4xl mb-1">
           UNIDADE <span className="text-brand text-glow">{unit.name}</span>
         </h1>

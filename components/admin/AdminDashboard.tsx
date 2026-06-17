@@ -320,6 +320,7 @@ function Config({ eco, onChange }: { eco: Eco; onChange: () => void }) {
     unit_percent: String(eco.unit_percent),
     payout_deadline_hours: String(eco.payout_deadline_hours),
     specialist_price: String(eco.specialist_price),
+    unit_activation_price: String(eco.unit_activation_price),
   });
   const [msg, setMsg] = useState<string | null>(null);
   const prize = Math.max(0, 100 - Number(form.house_percent || 0) - Number(form.unit_percent || 0));
@@ -362,6 +363,7 @@ function Config({ eco, onChange }: { eco: Eco; onChange: () => void }) {
         {field("unit_percent", "% da unidade")}
         {field("payout_deadline_hours", "Prazo pagamento (h)")}
         {field("specialist_price", "Especialista IA (R$)")}
+        {field("unit_activation_price", "Ativação unidade (R$)")}
       </div>
       <div className="mt-4 flex items-center gap-3">
         <button onClick={save} className="btn-primary rounded-xl font-bold px-6 py-2.5">Salvar</button>

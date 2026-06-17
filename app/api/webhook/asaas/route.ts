@@ -43,6 +43,21 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: true });
       }
 
+      // Ativação de unidade?
+      const unitOrder = await prisma.unitOrder.findUnique({ where: { asaasPaymentId: p.id } });
+      if (unitOrder) {
+        if (paid && unitOrder.status !== "CONFIRMED") {
+          await prisma.unitOrder.update({
+            where: { id: unitOrder.id },
+            data: { status: "CONFIRMED", confirmedAt: new Date(), ...paymentSnapshot(p) },
+          });
+          await prisma.unit.update({ where: { id: unitOrder.unitId }, data: { active: true } });
+        } else if (type === "PAYMENT_REFUNDED" && unitOrder.status !== "REFUNDED") {
+          await prisma.unitOrder.update({ where: { id: unitOrder.id }, data: { status: "REFUNDED" } });
+        }
+        return NextResponse.json({ ok: true });
+      }
+
       // Senão, pode ser um pedido do Especialista (IA paga)
       const order = await prisma.specialistOrder.findUnique({
         where: { asaasPaymentId: p.id },

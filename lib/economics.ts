@@ -11,6 +11,7 @@ export const DEFAULTS = {
   unit_percent: 10, // % pago à unidade que trouxe o palpite (do valor do palpite)
   payout_deadline_hours: 24, // prazo de apuração/pagamento informado ao usuário
   specialist_price: 3, // R$ por dica do Especialista IA (uso único, 100% da casa, fora do prêmio)
+  unit_activation_price: 49.9, // R$ taxa única de ativação da unidade (100% da casa)
 } as const;
 
 export type EconomicsKey = keyof typeof DEFAULTS;

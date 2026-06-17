@@ -27,6 +27,8 @@ export type FinanceOverview = {
   entriesCount: number;
   specialistCount: number;
   specialistTotal: number;
+  activationsCount: number;
+  activationsTotal: number;
   methods: MethodRow[];
   upcoming: CreditBucket[];
 };
@@ -56,6 +58,10 @@ export async function getFinanceOverview(): Promise<FinanceResult> {
       ordersByMethod,
       entriesUpcoming,
       ordersUpcoming,
+      actConf,
+      actNet,
+      actByMethod,
+      actUpcoming,
     ] = await Promise.all([
       prisma.entry.aggregate({
         where: { status: "CONFIRMED" },
@@ -71,16 +77,23 @@ export async function getFinanceOverview(): Promise<FinanceResult> {
       prisma.specialistOrder.groupBy({ by: ["billingType"], where: { status: "CONFIRMED" }, _sum: { amount: true, netValue: true }, _count: { _all: true } }),
       prisma.entry.findMany({ where: { status: "CONFIRMED", estimatedCreditDate: { gte: startToday } }, select: { estimatedCreditDate: true, netValue: true, amount: true } }),
       prisma.specialistOrder.findMany({ where: { status: "CONFIRMED", estimatedCreditDate: { gte: startToday } }, select: { estimatedCreditDate: true, netValue: true, amount: true } }),
+      prisma.unitOrder.aggregate({ where: { status: "CONFIRMED" }, _sum: { amount: true }, _count: { _all: true } }),
+      prisma.unitOrder.aggregate({ where: { status: "CONFIRMED", netValue: { not: null } }, _sum: { amount: true, netValue: true } }),
+      prisma.unitOrder.groupBy({ by: ["billingType"], where: { status: "CONFIRMED" }, _sum: { amount: true, netValue: true }, _count: { _all: true } }),
+      prisma.unitOrder.findMany({ where: { status: "CONFIRMED", estimatedCreditDate: { gte: startToday } }, select: { estimatedCreditDate: true, netValue: true, amount: true } }),
     ]);
 
-    const gross = round2(num(entriesConf._sum.amount) + num(ordersConf._sum.amount));
+    const activationsTotal = round2(num(actConf._sum.amount));
+    const activationsCount = actConf._count._all;
+
+    const gross = round2(num(entriesConf._sum.amount) + num(ordersConf._sum.amount) + activationsTotal);
     const prizePool = round2(num(entriesConf._sum.prizeContribution));
     const commissions = round2(num(entriesConf._sum.unitCommission));
     const specialistTotal = round2(num(ordersConf._sum.amount));
-    const houseGross = round2(num(entriesConf._sum.houseCut) + specialistTotal);
+    const houseGross = round2(num(entriesConf._sum.houseCut) + specialistTotal + activationsTotal);
 
-    const feesKnownGross = round2(num(entriesNet._sum.amount) + num(ordersNet._sum.amount));
-    const netKnown = round2(num(entriesNet._sum.netValue) + num(ordersNet._sum.netValue));
+    const feesKnownGross = round2(num(entriesNet._sum.amount) + num(ordersNet._sum.amount) + num(actNet._sum.amount));
+    const netKnown = round2(num(entriesNet._sum.netValue) + num(ordersNet._sum.netValue) + num(actNet._sum.netValue));
     const fees = round2(feesKnownGross - netKnown);
     const feeRate = feesKnownGross > 0 ? round2((fees / feesKnownGross) * 100) : 0;
     const houseNet = round2(houseGross - fees);
@@ -96,6 +109,7 @@ export async function getFinanceOverview(): Promise<FinanceResult> {
     };
     for (const r of entriesByMethod) add(r.billingType, r._count._all, r._sum.amount, r._sum.netValue);
     for (const r of ordersByMethod) add(r.billingType, r._count._all, r._sum.amount, r._sum.netValue);
+    for (const r of actByMethod) add(r.billingType, r._count._all, r._sum.amount, r._sum.netValue);
 
     const methods: MethodRow[] = ["PIX", "CREDIT_CARD", "DEBIT_CARD"]
       .map((bt) => {
@@ -116,6 +130,7 @@ export async function getFinanceOverview(): Promise<FinanceResult> {
     };
     for (const p of entriesUpcoming) pushUp(p.estimatedCreditDate, p.netValue, p.amount);
     for (const p of ordersUpcoming) pushUp(p.estimatedCreditDate, p.netValue, p.amount);
+    for (const p of actUpcoming) pushUp(p.estimatedCreditDate, p.netValue, p.amount);
     const upcoming = [...buckets.values()].sort((a, b) => a.date.localeCompare(b.date));
 
     return {
@@ -133,6 +148,8 @@ export async function getFinanceOverview(): Promise<FinanceResult> {
       entriesCount: entriesConf._count._all,
       specialistCount: ordersConf._count._all,
       specialistTotal,
+      activationsCount,
+      activationsTotal,
       methods,
       upcoming,
     };

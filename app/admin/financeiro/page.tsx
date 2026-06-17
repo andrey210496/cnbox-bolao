@@ -76,9 +76,11 @@ export default async function FinanceiroPage() {
               <p className="text-white/45 text-sm mb-4">
                 Dicas vendidas (100% da casa, fora do prêmio).
               </p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 <Card label="Dicas vendidas" value={String(fin.specialistCount)} />
                 <Card label="Total das dicas" value={formatBRL(fin.specialistTotal)} accent />
+                <Card label="Unidades ativadas" value={String(fin.activationsCount)} />
+                <Card label="Total ativações" value={formatBRL(fin.activationsTotal)} accent />
               </div>
             </section>
 
